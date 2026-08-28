@@ -1,0 +1,18 @@
+{
+  "name": "momo-reading-assistant",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "mammoth": "^1.10.0",
+    "pdfjs-dist": "^6.2.108"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.62.1",
+    "vercel": "^59.9.1"
+  }
+}

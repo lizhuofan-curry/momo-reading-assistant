@@ -1,0 +1,11 @@
+node_modules/
+.vercel/
+.env*
+.npm-cache/
+.browser-tmp/
+artifacts/
+public/vendor/
+npm-debug.log*
+
+.vercel
+.env*
