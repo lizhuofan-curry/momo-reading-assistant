@@ -27,13 +27,14 @@ export function providerConfig(data, free = false) {
   return { ...preset, apiKey, model, provider };
 }
 
-export async function chatCompletion(config, messages, { jsonMode = false, timeout = 55000 } = {}) {
+export async function chatCompletion(config, messages, { jsonMode = false, timeout = 55000, maxTokens = 4096 } = {}) {
   const headers = { "Authorization": `Bearer ${config.apiKey}`, "Content-Type": "application/json" };
   if (config.provider === "openrouter") {
     headers["HTTP-Referer"] = "https://momo.zhuofan.me";
     headers["X-OpenRouter-Title"] = "拾词";
   }
-  const requestBody = { model: config.model, messages, temperature: 0.2 };
+  const requestBody = { model: config.model, messages, temperature: 0.2, max_tokens: maxTokens };
+  if (config.provider === "deepseek") requestBody.thinking = { type: "disabled" };
   if (jsonMode) requestBody.response_format = { type: "json_object" };
   const remote = await fetch(`${config.baseUrl}/chat/completions`, {
     method: "POST",
@@ -47,4 +48,3 @@ export async function chatCompletion(config, messages, { jsonMode = false, timeo
   if (!content) throw new Error(`${config.label} 已连接，但没有返回有效内容。`);
   return content;
 }
-
