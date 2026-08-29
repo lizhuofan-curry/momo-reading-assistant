@@ -1,2 +1,62 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="连接自己的 AI API 与墨墨 Token"><title>连接设置 · 拾词</title><link rel="stylesheet" href="/site.css"></head><body><header class="topbar"><nav class="nav"><a class="brand" href="/"><span class="brand-mark">拾</span><strong>拾词</strong></a><div class="nav-links"><a href="/guide/">使用教程</a><a href="/privacy/">隐私说明</a><a href="/help/">常见问题</a><a aria-current="page" href="/connections/">连接设置</a><a class="nav-cta" href="/">返回工作台</a></div></nav></header><main class="page"><section class="hero"><div class="eyebrow">Connections</div><h1>连接你自己的服务。</h1><p>先测试，再保存到当前标签页。密钥不会写入本站数据库，关闭标签页后需要重新连接。</p></section><div class="provider-grid"><section class="sheet"><span class="badge">AI API</span><h2>选择模型服务商</h2><div class="field"><label for="provider">服务商</label><select id="provider"><option value="deepseek">DeepSeek</option><option value="openai">OpenAI</option><option value="qwen">阿里云百炼 Qwen</option><option value="openrouter">OpenRouter</option></select></div><div class="field"><label for="model">模型名称</label><input id="model" autocomplete="off"></div><div class="field"><label for="api-key">API Key</label><input id="api-key" type="password" autocomplete="off" placeholder="仅在当前标签页使用"></div><div class="actions"><button class="button" id="test-ai">测试 AI 连接</button><button class="button secondary" id="clear-ai">清除</button></div><p class="status" id="ai-status" aria-live="polite"></p></section><section class="sheet"><span class="badge">WORDBOOK</span><h2>连接词本同步</h2><div class="note warning">本站是非官方工具，因此不展示墨墨官方 Logo。同步时必须使用你自己的 Access Token。</div><div class="field"><label for="memo-token">墨墨 Access Token</label><input id="memo-token" type="password" autocomplete="off" placeholder="仅在当前标签页使用"></div><div class="actions"><button class="button" id="test-memo">测试 Token</button><button class="button secondary" id="clear-memo">清除</button></div><p class="status" id="memo-status" aria-live="polite"></p><p><a href="https://www.maimemo.com/pages/openapi/introduction?open_by=share" rel="noreferrer">前往墨墨开放平台获取 Token</a></p></section></div><div class="actions"><a class="button" href="/">完成，返回工作台</a></div></main><footer class="footer"><span>连接信息只保留在当前标签页</span><span><a href="/privacy/">查看完整隐私说明</a></span></footer><script type="module" src="/connections.js"></script></body></html>
-
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="连接自己的 AI API 与墨墨 Token">
+  <title>连接设置 · 拾词</title>
+  <link rel="stylesheet" href="/site.css">
+</head>
+<body>
+  <header class="topbar"><nav class="nav"><a class="brand" href="/"><span class="brand-mark">拾</span><strong>拾词</strong></a><div class="nav-links"><a href="/guide/">使用教程</a><a href="/privacy/">隐私说明</a><a href="/help/">常见问题</a><a aria-current="page" href="/connections/">连接设置</a><a class="nav-cta" href="/">返回工作台</a></div></nav></header>
+  <main class="page">
+    <section class="hero"><div class="eyebrow">Connections</div><h1>连接你自己的服务。</h1><p>选择服务商，输入 API Key 后识别可用模型。测试成功的连接只保存到当前标签页。</p></section>
+    <div class="provider-grid connection-grid">
+      <section class="sheet api-sheet">
+        <span class="badge">AI API</span>
+        <div class="section-heading"><div><h2>连接模型服务商</h2><p>支持 10 家官方 OpenAI 兼容接口。</p></div><span class="step-count">01</span></div>
+        <input id="provider" type="hidden" value="deepseek">
+        <div class="field">
+          <label id="provider-select-label">服务商</label>
+          <div class="smart-select" id="provider-select">
+            <button class="smart-trigger" id="provider-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="provider-select-label provider-name">
+              <span class="provider-mark" id="provider-mark">DS</span><span class="trigger-copy"><strong id="provider-name">DeepSeek</strong><small id="provider-description">国内服务 · 自动识别可用模型</small></span><span class="chevron" aria-hidden="true">⌄</span>
+            </button>
+            <div class="smart-menu provider-menu hidden" id="provider-menu" role="listbox" aria-labelledby="provider-select-label">
+              <div class="menu-group">国内服务</div>
+              <button class="provider-option selected" type="button" role="option" aria-selected="true" data-provider="deepseek"><span class="provider-mark">DS</span><span><strong>DeepSeek</strong><small>DeepSeek 官方 API</small></span><i>✓</i></button>
+              <button class="provider-option" type="button" role="option" aria-selected="false" data-provider="qwen"><span class="provider-mark">QW</span><span><strong>阿里云百炼 Qwen</strong><small>通义千问兼容接口</small></span><i>✓</i></button>
+              <button class="provider-option" type="button" role="option" aria-selected="false" data-provider="siliconflow"><span class="provider-mark">SF</span><span><strong>硅基流动 SiliconFlow</strong><small>多模型聚合平台</small></span><i>✓</i></button>
+              <div class="menu-group">国际服务</div>
+              <button class="provider-option" type="button" role="option" aria-selected="false" data-provider="openai"><span class="provider-mark">OA</span><span><strong>OpenAI</strong><small>OpenAI 官方 API</small></span><i>✓</i></button>
+              <button class="provider-option" type="button" role="option" aria-selected="false" data-provider="gemini"><span class="provider-mark">GE</span><span><strong>Google Gemini</strong><small>Google AI Studio API</small></span><i>✓</i></button>
+              <button class="provider-option" type="button" role="option" aria-selected="false" data-provider="openrouter"><span class="provider-mark">OR</span><span><strong>OpenRouter</strong><small>多模型统一入口</small></span><i>✓</i></button>
+              <button class="provider-option" type="button" role="option" aria-selected="false" data-provider="groq"><span class="provider-mark">GQ</span><span><strong>Groq</strong><small>高速推理平台</small></span><i>✓</i></button>
+              <button class="provider-option" type="button" role="option" aria-selected="false" data-provider="together"><span class="provider-mark">TA</span><span><strong>Together AI</strong><small>开放模型平台</small></span><i>✓</i></button>
+              <button class="provider-option" type="button" role="option" aria-selected="false" data-provider="mistral"><span class="provider-mark">MI</span><span><strong>Mistral AI</strong><small>Mistral 官方 API</small></span><i>✓</i></button>
+              <button class="provider-option" type="button" role="option" aria-selected="false" data-provider="xai"><span class="provider-mark">xAI</span><span><strong>xAI</strong><small>Grok 官方 API</small></span><i>✓</i></button>
+            </div>
+          </div>
+        </div>
+        <div class="field"><label for="api-key">API Key</label><input id="api-key" type="password" autocomplete="off" placeholder="粘贴该服务商的 API Key"><small>密钥只发送到所选服务商，并保存在当前标签页。</small></div>
+        <div class="model-discovery"><div><strong>识别可用模型</strong><span>使用上方 Key 读取账号当前可用的文本模型</span></div><button class="button secondary compact" id="load-models" type="button">开始识别</button></div>
+        <input id="model" type="hidden" value="deepseek-v4-flash">
+        <div class="field">
+          <label id="model-select-label">模型</label>
+          <div class="smart-select model-select" id="model-select">
+            <button class="smart-trigger model-trigger" id="model-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="model-select-label model-name"><span class="model-dot" aria-hidden="true"></span><span class="trigger-copy"><strong id="model-name">deepseek-v4-flash</strong><small id="model-meta">默认推荐 · 输入 Key 后可自动识别</small></span><span class="chevron" aria-hidden="true">⌄</span></button>
+            <div class="smart-menu model-menu hidden" id="model-menu" role="listbox" aria-labelledby="model-select-label"><div class="model-search"><input id="model-search" type="search" placeholder="搜索模型名称" autocomplete="off"></div><div id="model-options" class="model-options"></div><button class="manual-option" id="manual-option" type="button">找不到？手动填写模型名称</button></div>
+          </div>
+        </div>
+        <div class="field hidden" id="manual-model-field"><label for="manual-model">手动模型名称</label><input id="manual-model" autocomplete="off" placeholder="例如 provider/model-name"><small>仅在服务商未开放模型列表时使用。</small></div>
+        <div class="actions"><button class="button" id="test-ai">测试 AI 连接</button><button class="button secondary" id="clear-ai">清除</button></div>
+        <p class="status" id="ai-status" aria-live="polite"></p>
+      </section>
+      <section class="sheet memo-sheet"><span class="badge">WORDBOOK</span><div class="section-heading"><div><h2>连接词本同步</h2><p>分析不需要 Token，同步时才需要。</p></div><span class="step-count">02</span></div><div class="note warning">本站是非官方工具，因此不展示墨墨官方 Logo。同步时必须使用你自己的 Access Token。</div><div class="field"><label for="memo-token">墨墨 Access Token</label><input id="memo-token" type="password" autocomplete="off" placeholder="仅在当前标签页使用"></div><div class="actions"><button class="button" id="test-memo">测试 Token</button><button class="button secondary" id="clear-memo">清除</button></div><p class="status" id="memo-status" aria-live="polite"></p><p><a href="https://www.maimemo.com/pages/openapi/introduction?open_by=share" rel="noreferrer">前往墨墨开放平台获取 Token</a></p></section>
+    </div>
+    <div class="actions"><a class="button" href="/">完成，返回工作台</a></div>
+  </main>
+  <footer class="footer"><span>连接信息只保留在当前标签页</span><span><a href="/privacy/">查看完整隐私说明</a></span></footer>
+  <script type="module" src="/connections.js"></script>
+</body>
+</html>

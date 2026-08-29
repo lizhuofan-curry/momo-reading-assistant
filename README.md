@@ -63,7 +63,7 @@
 | ✍️ 人工审核 | AI 只负责建议，你决定哪些词真正进入词本 |
 | 📌 保留语境 | 每个单词都保留原文例句、中文释义和筛选理由 |
 | ☁️ 墨墨同步 | 使用你自己的墨墨 Access Token 创建云词本 |
-| 🔌 自选 AI 来源 | 支持免费体验模型，也支持 DeepSeek、OpenAI、阿里云百炼 Qwen、OpenRouter 等自有 API |
+| 🔌 自选 AI 来源 | 支持 10 家官方兼容服务商，可用 API Key 自动识别文本模型并下拉选择 |
 | 🎟️ 免费体验 | 每个浏览器可成功分析 5 次，额度控件会解释计数规则 |
 | ◌ 操作状态 | 提供解析中、分析中、失败、完成及同步反馈 |
 | ? Token 帮助 | 只分析不需要墨墨 Token，创建云词本时才需要 |
@@ -141,6 +141,7 @@ npm audit --omit=dev
 momo-reading-assistant/
 ├── api/
 │   ├── analyze.mjs       # AI 语境筛词接口
+│   ├── models.mjs        # 使用访客 Key 识别可用文本模型
 │   ├── quota.mjs         # 免费体验额度接口
 │   └── sync.mjs          # 墨墨云词本同步接口
 ├── public/

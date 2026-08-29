@@ -1,9 +1,57 @@
 export const PROVIDERS = {
-  deepseek: { label: "DeepSeek", baseUrl: "https://api.deepseek.com" },
-  openai: { label: "OpenAI", baseUrl: "https://api.openai.com/v1" },
-  qwen: { label: "阿里云百炼 Qwen", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1" },
-  openrouter: { label: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1" }
+  deepseek: { label: "DeepSeek", baseUrl: "https://api.deepseek.com", defaultModel: "deepseek-v4-flash", group: "国内服务" },
+  qwen: { label: "阿里云百炼 Qwen", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", modelsUrl: "https://dashscope.aliyuncs.com/api/v1/models?capabilities=TG&page_size=100", defaultModel: "qwen-plus", group: "国内服务" },
+  siliconflow: { label: "硅基流动 SiliconFlow", baseUrl: "https://api.siliconflow.cn/v1", modelsUrl: "https://api.siliconflow.cn/v1/models?type=text", defaultModel: "Qwen/Qwen3-8B", group: "国内服务", jsonMode: false },
+  openai: { label: "OpenAI", baseUrl: "https://api.openai.com/v1", defaultModel: "gpt-5.4-mini", group: "国际服务" },
+  gemini: { label: "Google Gemini", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", defaultModel: "gemini-3.7-flash", group: "国际服务" },
+  openrouter: { label: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1", defaultModel: "openai/gpt-4.1-mini", group: "国际服务" },
+  groq: { label: "Groq", baseUrl: "https://api.groq.com/openai/v1", defaultModel: "openai/gpt-oss-20b", group: "国际服务" },
+  together: { label: "Together AI", baseUrl: "https://api.together.xyz/v1", defaultModel: "openai/gpt-oss-120b", group: "国际服务", jsonMode: false },
+  mistral: { label: "Mistral AI", baseUrl: "https://api.mistral.ai/v1", defaultModel: "mistral-small-latest", group: "国际服务" },
+  xai: { label: "xAI", baseUrl: "https://api.x.ai/v1", defaultModel: "grok-4.6", group: "国际服务" }
 };
+
+function providerHeaders(config) {
+  const headers = { "Authorization": `Bearer ${config.apiKey}`, "Content-Type": "application/json" };
+  if (config.provider === "openrouter") {
+    headers["HTTP-Referer"] = "https://momo.zhuofan.me";
+    headers["X-OpenRouter-Title"] = "拾词";
+  }
+  return headers;
+}
+
+function modelItems(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.data?.models)) return payload.data.models;
+  if (Array.isArray(payload?.models)) return payload.models;
+  if (Array.isArray(payload?.output?.models)) return payload.output.models;
+  return [];
+}
+
+function isTextModel(item, id) {
+  const type = String(item?.type || item?.model_type || "").toLowerCase();
+  if (type && !["chat", "language", "text", "llm", "text-generation"].includes(type)) return false;
+  return !/(embedding|rerank|moderation|whisper|transcri|speech|tts|image|video|dall-e|sora)/i.test(id);
+}
+
+export async function listProviderModels(data) {
+  const config = providerConfig({ ...data, model: "temporary-model" }, false);
+  const preset = PROVIDERS[config.provider];
+  const remote = await fetch(preset.modelsUrl || `${config.baseUrl}/models`, {
+    headers: providerHeaders(config),
+    signal: AbortSignal.timeout(30000)
+  });
+  const payload = await remote.json().catch(() => ({}));
+  if (!remote.ok) throw new Error(`${config.label} 返回 ${remote.status}：${payload?.error?.message || payload?.message || "无法读取模型列表"}`);
+  const models = modelItems(payload).map(item => {
+    const id = String(item?.id || item?.model || item?.name || "").replace(/^models\//, "").trim();
+    return { id, name: String(item?.display_name || item?.name || id).replace(/^models\//, "").trim(), type: item?.type || "" };
+  }).filter(item => item.id && /^[A-Za-z0-9._:/-]{2,160}$/.test(item.id) && isTextModel(item, item.id));
+  const unique = [...new Map(models.map(item => [item.id, item])).values()].sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
+  if (!unique.length) throw new Error(`${config.label} 已连接，但没有返回可用于文本对话的模型。你仍可手动填写模型名称。`);
+  return unique.slice(0, 300);
+}
 
 export function providerConfig(data, free = false) {
   if (free) {
@@ -28,14 +76,10 @@ export function providerConfig(data, free = false) {
 }
 
 export async function chatCompletion(config, messages, { jsonMode = false, timeout = 55000, maxTokens = 4096 } = {}) {
-  const headers = { "Authorization": `Bearer ${config.apiKey}`, "Content-Type": "application/json" };
-  if (config.provider === "openrouter") {
-    headers["HTTP-Referer"] = "https://momo.zhuofan.me";
-    headers["X-OpenRouter-Title"] = "拾词";
-  }
+  const headers = providerHeaders(config);
   const requestBody = { model: config.model, messages, temperature: 0.2, max_tokens: maxTokens };
   if (config.provider === "deepseek") requestBody.thinking = { type: "disabled" };
-  if (jsonMode) requestBody.response_format = { type: "json_object" };
+  if (jsonMode && config.jsonMode !== false) requestBody.response_format = { type: "json_object" };
   const remote = await fetch(`${config.baseUrl}/chat/completions`, {
     method: "POST",
     headers,
