@@ -378,16 +378,22 @@ function loadDemo() {
   toast("已载入结果示例；同步时需要你自己的墨墨 Token");
 }
 
-function loadSubtitleImport() {
+function loadExternalImport() {
   let imported;
-  try { imported = JSON.parse(sessionStorage.getItem("momo_subtitle_import") || "null"); } catch { imported = null; }
+  let kind = "subtitle";
+  try {
+    const music = JSON.parse(sessionStorage.getItem("momo_music_import") || "null");
+    const subtitle = JSON.parse(sessionStorage.getItem("momo_subtitle_import") || "null");
+    imported = music?.text ? music : subtitle;
+    kind = music?.text ? "music" : "subtitle";
+  } catch { imported = null; }
   if (!imported?.text || Date.now() - Number(imported.importedAt || 0) > 30 * 60 * 1000) return;
-  sessionStorage.removeItem("momo_subtitle_import");
+  sessionStorage.removeItem(kind === "music" ? "momo_music_import" : "momo_subtitle_import");
   showMode("paste");
   $("paste-text").value = String(imported.text).slice(0, 150000);
   setSourceText($("paste-text").value);
   $("title").value = String(imported.title || "美剧台词生词").slice(0, 80);
-  $("tag").value = "美剧生词";
+  $("tag").value = kind === "music" ? "音乐歌词" : "美剧生词";
   if ([...$("level").options].some(option => option.value === imported.level)) {
     $("level").value = imported.level;
     $("level").dispatchEvent(new Event("change", { bubbles: true }));
@@ -396,9 +402,9 @@ function loadSubtitleImport() {
     $("expansion").value = imported.expansion;
     $("expansion").dispatchEvent(new Event("change", { bubbles: true }));
   }
-  setResultStatus("success", "字幕已带入工作台", "时间码和英文台词仍可编辑；确认筛选标准后再开始分析。");
+  setResultStatus("success", kind === "music" ? "歌词已带入工作台" : "字幕已带入工作台", `时间码和英文${kind === "music" ? "歌词" : "台词"}仍可编辑；确认筛选标准后再开始分析。`);
   $("workspace").scrollIntoView({ block: "start" });
-  toast("字幕已带入，并切换到美剧日常口语筛选");
+  toast(kind === "music" ? "歌词已带入，并切换到英文歌曲筛选" : "字幕已带入，并切换到美剧日常口语筛选");
 }
 
 $("hero-start").addEventListener("click", () => $("workspace").scrollIntoView({ behavior: "smooth", block: "start" }));
@@ -515,6 +521,6 @@ $("sync").addEventListener("click", async () => {
 });
 
 document.querySelectorAll("select.pretty-native").forEach(enhanceSelect);
-loadSubtitleImport();
+loadExternalImport();
 window.addEventListener("pageshow", updateConnectionUI);
 await loadQuota();

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="按名字搜索英文歌曲，上传本地音乐后识别带时间码的英文歌词，再进入拾词工作台筛选词汇。">
+  <title>音乐歌词 · 拾词</title>
+  <link rel="stylesheet" href="/site.css">
+</head>
+<body class="music-page">
+  <header class="topbar"><nav class="nav"><a class="brand" href="/"><span class="brand-mark">拾</span><strong>拾词</strong></a><div class="nav-links"><a aria-current="page" href="/music/">音乐歌词</a><a href="/subtitles/">美剧字幕</a><a href="/guide/">使用教程</a><a href="/privacy/">隐私说明</a><a href="/connections/">连接设置</a><a class="nav-cta" href="/">返回工作台</a></div></nav></header>
+  <main class="page music-main">
+    <section class="music-hero">
+      <div><div class="eyebrow">Liner notes · English lyrics</div><h1>听见旋律，也拾起藏在里面的英文。</h1><p>先按歌名找到正确版本，再上传你合法持有的音频。拾词会在浏览器本地生成轻量音频分片，使用你自己的语音识别服务整理英文歌词。</p></div>
+      <div class="record-sleeve" id="record-sleeve"><div class="record"><i></i></div><div class="sleeve-copy"><span>拾词唱片内页</span><strong id="sleeve-title">UNKNOWN<br>TRACK</strong><small id="sleeve-artist">等待选择歌曲</small></div></div>
+    </section>
+
+    <section class="music-flow">
+      <section class="sheet music-search-sheet">
+        <div class="section-heading"><div><span class="badge">FIND</span><h2>按名字找到歌曲</h2><p>搜索只读取歌曲目录，不会下载整首音乐。</p></div><span class="step-count">01</span></div>
+        <form class="music-search" id="music-search-form"><label class="visually-hidden" for="music-query">歌曲名或歌手</label><input id="music-query" maxlength="80" autocomplete="off" placeholder="输入歌曲名或歌手，例如 Yellow Coldplay"><button class="button" type="submit">搜索歌曲</button></form>
+        <p class="status" id="music-search-status">可以跳过搜索，直接填写歌曲信息并上传音频。</p>
+        <div class="music-results hidden" id="music-results"></div>
+        <article class="selected-track hidden" id="selected-track"><img id="selected-artwork" alt=""><div><span>已选歌曲</span><strong id="selected-title"></strong><small id="selected-meta"></small><a id="selected-store" target="_blank" rel="noreferrer">在 Apple Music 查看 ↗</a></div><audio id="catalog-preview" controls preload="none"></audio></article>
+      </section>
+
+      <section class="sheet music-upload-sheet">
+        <div class="section-heading"><div><span class="badge">UPLOAD</span><h2>上传本地音乐</h2><p>音频不会作为完整文件上传到拾词服务器。</p></div><span class="step-count">02</span></div>
+        <label class="music-drop" id="music-drop" for="music-file"><input id="music-file" type="file" accept=".mp3,.wav,.m4a,.ogg,.flac,audio/mpeg,audio/wav,audio/mp4,audio/ogg,audio/flac"><span class="music-note-mark">♫</span><strong id="music-file-title">选择音乐文件</strong><small id="music-file-note">MP3、WAV、M4A、OGG、FLAC · 最大 30 MB / 12 分钟</small></label>
+        <audio class="local-player hidden" id="local-player" controls preload="metadata"></audio>
+        <canvas class="music-wave hidden" id="music-wave" height="118" aria-label="本地音频波形"></canvas>
+        <div class="track-fields"><div class="field"><label for="track-title">歌曲名</label><input id="track-title" maxlength="80" placeholder="搜索选择后会自动填写"></div><div class="field"><label for="track-artist">歌手</label><input id="track-artist" maxlength="80" placeholder="可选，但有助于识别"></div></div>
+        <p class="status" id="music-file-status">等待选择本地音乐。</p>
+      </section>
+    </section>
+
+    <section class="sheet transcription-sheet">
+      <div class="section-heading"><div><span class="badge">TRANSCRIBE</span><h2>连接英文歌词识别</h2><p>首版支持 OpenAI 与 Groq；费用由对应服务商向你的账号收取。</p></div><span class="step-count">03</span></div>
+      <div class="speech-provider" role="group" aria-label="语音识别服务商"><button class="speech-provider-button selected" data-provider="groq" type="button"><span>GQ</span><strong>Groq</strong><small>速度快，首选 Whisper Turbo</small></button><button class="speech-provider-button" data-provider="openai" type="button"><span>OA</span><strong>OpenAI</strong><small>GPT-4o Transcribe 与 Whisper</small></button></div>
+      <div class="speech-config"><div class="field"><label for="speech-model">语音模型</label><select id="speech-model"></select></div><div class="field"><label for="speech-key">API Key</label><input id="speech-key" type="password" autocomplete="off" placeholder="只发送给你选择的语音服务商"><a class="provider-key-link" id="speech-key-link" target="_blank" rel="noreferrer">获取 API Key ↗</a></div></div>
+      <div class="speech-settings"><label><input id="remember-speech" type="checkbox" checked><span><strong>在此浏览器记住语音连接</strong><small>公共设备上请关闭；关闭后只保留在当前标签页。</small></span></label><label><input id="dedupe-lyrics" type="checkbox" checked><span><strong>合并完全重复的歌词</strong><small>重复副歌只保留首次出现，减少后续筛词噪声。</small></span></label></div>
+      <div class="recognize-actions"><button class="button" id="recognize-music" type="button">开始识别英文歌词</button><button class="button secondary hidden" id="stop-recognition" type="button">停止识别</button><button class="button secondary" id="clear-speech" type="button">清除语音连接</button></div>
+      <div class="recognition-progress hidden" id="recognition-progress"><div><i id="recognition-progress-bar"></i></div><p><strong id="recognition-progress-title">准备音频</strong><span id="recognition-progress-detail">0 / 0</span></p></div>
+      <p class="status" id="speech-status">音乐伴奏会降低识别准确率；人声清晰、发音明确的英文歌曲效果更好。</p>
+    </section>
+
+    <section class="sheet lyrics-sheet">
+      <div class="section-heading"><div><span class="badge">LYRICS</span><h2>检查识别歌词</h2><p>AI 转写可能听错专有名词和连读，请在筛词前修正。</p></div><span class="step-count">04</span></div>
+      <div class="lyrics-empty" id="lyrics-empty"><div class="groove-lines"><i></i><i></i><i></i><i></i></div><strong>这里还没有歌词</strong><p>选择本地音乐并开始识别后，带时间码的英文歌词会出现在这里。</p></div>
+      <div class="lyrics-result hidden" id="lyrics-result"><div class="lyrics-timeline" id="lyrics-timeline"></div><label for="lyrics-output">送往工作台的歌词</label><textarea id="lyrics-output" spellcheck="false"></textarea><div class="music-handoff"><p><strong>继续做成学习材料</strong><span>工作台会自动选择“英文歌曲与歌词”，并开启常用短语扩展。</span></p><button class="button" id="send-music-workspace" type="button">带着歌词去筛词 →</button></div></div>
+    </section>
+
+    <section class="music-boundary"><strong>搜索结果不是整首音乐或官方歌词。</strong><p>目录结果只用于确认歌曲信息并播放服务商提供的试听片段。完整识别需要你上传合法持有的音频；请勿上传无权处理或公开传播的内容。</p></section>
+  </main>
+  <footer class="footer"><span>拾词 · 把英文歌词变成可复习的语境</span><span><a href="/privacy/">隐私说明</a> · <a href="/help/">常见问题</a> · <a href="https://zhuofan.me">作者主页</a></span></footer>
+  <div class="subtitle-toast" id="music-toast" role="status"></div>
+  <script type="module" src="/music.js"></script>
+</body>
+</html>

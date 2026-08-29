@@ -75,10 +75,13 @@ export function normalize(raw, article, limit, expansion = "none") {
 
 export function buildPrompt(article, level, maxWords, expansion = "none") {
   const vocabularySize = level.match(/词汇量\D{0,5}(\d{2,5})/i);
+  const music = /歌曲|歌词|音乐/i.test(level);
   const spoken = /美剧|影视|字幕|口语|俚语/i.test(level);
   const beginner = /A1|A2|基础|小学|初中|入门|初学|只认识|较差|较弱|不会/i.test(level)
     || (vocabularySize && Number(vocabularySize[1]) <= 3000);
-  const levelRule = spoken
+  const levelRule = music
+    ? "材料来自英文歌曲识别歌词：优先选择可复用的动词短语、习语、隐喻核心词和熟词特殊含义；排除歌手名、歌曲名、拟声词、无语义重复和仅为押韵而出现的噪声。"
+    : spoken
     ? "材料来自影视字幕：优先选择真实口语中可复用的动词、熟词口语义、俚语核心词和固定搭配中的关键词；排除角色名、语气噪声和只在剧情中有意义的专有词。"
     : beginner
     ? "学习者目前处于基础阶段：可以选择材料中的日常基础词和常用动词，不要因为词频高就一律删除；优先保证可理解、可复用。"

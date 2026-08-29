@@ -1,6 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
+import { encodeWav } from "../public/audio-utils.js";
 
 const output = new URL("../artifacts/", import.meta.url);
 const baseUrl = process.env.BROWSER_BASE_URL || "http://127.0.0.1:4173";
@@ -69,13 +70,42 @@ if (!await page.locator(".word-expansion").first().getByText("robustness", { exa
 if (!await page.locator("#result-status.success").isVisible()) throw new Error("结果成功状态未显示");
 await page.locator("#token-help").click();
 if (!await page.locator("#token-explainer").getByText(/只分析和审核生词不需要 Token/).isVisible()) throw new Error("Token 说明未展开");
-for (const path of ["/subtitles/", "/guide/", "/privacy/", "/help/", "/connections/"]) {
+for (const path of ["/music/", "/subtitles/", "/guide/", "/privacy/", "/help/", "/connections/"]) {
   const child = await context.newPage();
   child.on("pageerror", error => pageErrors.push(`${path}: ${error.message}`));
   await child.goto(new URL(path, baseUrl).href, { waitUntil: "networkidle" });
   if (!(await child.locator("main").innerText()).trim()) throw new Error(`${path} 页面为空`);
   await child.close();
 }
+const musicPage = await context.newPage();
+musicPage.on("pageerror", error => pageErrors.push(`/music/: ${error.message}`));
+await musicPage.route("**/api/music-search*", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, source: "Apple iTunes Search", results: [{ id: "music-1", title: "Yellow", artist: "Coldplay", album: "Parachutes", artworkUrl: "", previewUrl: "", duration: 266000, explicit: false, storeUrl: "https://music.apple.com/us/album/yellow/1122782080?i=1122782283" }] }) }));
+await musicPage.route("**/api/transcribe", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, text: "Look at the stars, look how they shine for you.", segments: [{ start: 0, end: 2.4, text: "Look at the stars, look how they shine for you.", noSpeech: 0 }] }) }));
+await musicPage.goto(new URL("/music/", baseUrl).href, { waitUntil: "networkidle" });
+if (!await musicPage.getByRole("heading", { name: /听见旋律/ }).isVisible()) throw new Error("音乐歌词页面未显示");
+await musicPage.locator("#music-query").fill("Yellow Coldplay");
+await musicPage.getByRole("button", { name: "搜索歌曲" }).click();
+await musicPage.locator(".music-result").first().click();
+if (await musicPage.locator("#track-title").inputValue() !== "Yellow") throw new Error("歌曲搜索结果没有填入歌曲名");
+if (await musicPage.locator("#track-artist").inputValue() !== "Coldplay") throw new Error("歌曲搜索结果没有填入歌手");
+const samples = new Float32Array(16000);
+for (let index = 0; index < samples.length; index += 1) samples[index] = Math.sin(index / 14) * .15;
+const wav = encodeWav(samples, 16000);
+await musicPage.locator("#music-file").setInputFiles({ name: "yellow.wav", mimeType: "audio/wav", buffer: Buffer.from(wav) });
+await musicPage.locator("#music-file-status.ok").waitFor({ state: "visible" });
+if (!await musicPage.locator("#music-wave").isVisible()) throw new Error("本地音频波形未显示");
+await musicPage.locator("#speech-key").fill("test-groq-key");
+await musicPage.getByRole("button", { name: "开始识别英文歌词" }).click();
+await musicPage.locator("#speech-status.ok").waitFor({ state: "visible" });
+if (!/Look at the stars/.test(await musicPage.locator("#lyrics-output").inputValue())) throw new Error("音乐转写结果没有显示");
+await musicPage.screenshot({ path: fileURLToPath(new URL("music-lyrics.png", output)), fullPage: true });
+await musicPage.getByRole("button", { name: /带着歌词去筛词/ }).click();
+await musicPage.waitForURL(url => url.pathname === "/");
+if (await musicPage.locator("#level").inputValue() !== "英文歌曲与歌词") throw new Error("歌词没有切换到英文歌曲筛选标准");
+if (await musicPage.locator("#expansion").inputValue() !== "phrases") throw new Error("歌词没有默认开启短语扩展");
+if (!/Look at the stars/.test(await musicPage.locator("#paste-text").inputValue())) throw new Error("歌词没有带入工作台");
+await musicPage.screenshot({ path: fileURLToPath(new URL("music-handoff.png", output)), fullPage: true });
+await musicPage.close();
 const subtitlePage = await context.newPage();
 await subtitlePage.goto(new URL("/subtitles/", baseUrl).href, { waitUntil: "networkidle" });
 if (!await subtitlePage.getByRole("heading", { name: /让每句台词/ }).isVisible()) throw new Error("美剧字幕页面未显示");
@@ -192,6 +222,13 @@ if (!await subtitleMobile.locator(".timeline-cue").first().isVisible()) throw ne
 if (!await subtitleMobile.getByRole("button", { name: /带着字幕去筛词/ }).isVisible()) throw new Error("移动端字幕交接按钮未显示");
 await subtitleMobile.screenshot({ path: fileURLToPath(new URL("subtitles-mobile.png", output)), fullPage: true });
 await subtitleMobile.close();
+const musicMobile = await context.newPage();
+await musicMobile.setViewportSize({ width: 390, height: 844 });
+await musicMobile.goto(new URL("/music/", baseUrl).href, { waitUntil: "networkidle" });
+if (!await musicMobile.getByRole("heading", { name: /听见旋律/ }).isVisible()) throw new Error("移动端音乐页面未显示");
+if (!await musicMobile.locator("#music-query").isVisible()) throw new Error("移动端歌曲搜索未显示");
+await musicMobile.screenshot({ path: fileURLToPath(new URL("music-mobile.png", output)), fullPage: true });
+await musicMobile.close();
 await browser.close();
 if (consoleErrors.length || pageErrors.length) throw new Error(`浏览器错误：${[...consoleErrors, ...pageErrors].join(" | ")}`);
 console.log("BROWSER_CHECK_OK");

@@ -7,6 +7,8 @@
 <p>
   <a href="https://momo.zhuofan.me"><strong>🌐 在线体验</strong></a>
   ·
+  <a href="https://momo.zhuofan.me/music/">音乐歌词</a>
+  ·
   <a href="https://momo.zhuofan.me/subtitles/">美剧字幕</a>
   ·
   <a href="https://momo.zhuofan.me/guide/">使用教程</a>
@@ -45,7 +47,7 @@
 拾词把英文阅读和词汇复习连成一个闭环：
 
 ```text
-论文 / 讲义 / 电子书 / 笔记 / 英文图片 / 美剧字幕
+论文 / 讲义 / 电子书 / 笔记 / 英文图片 / 美剧字幕 / 英文歌曲
               ↓
        本地提取真实语境
               ↓
@@ -63,7 +65,9 @@
 | 📄 多格式导入 | 支持 PDF、DOCX、TXT、Markdown，也可以直接粘贴英文文本 |
 | 🖼️ 本地图片 OCR | 支持 PNG、JPG、WEBP、BMP；原图留在浏览器，仅识别后的文字进入筛词流程 |
 | 🎬 美剧字幕整理 | 支持 SRT、VTT、ASS、SSA 和粘贴字幕；本地清除中文、样式、重复台词并保留时间码 |
-| 🧠 语境筛词 | 根据四级、六级、考研、雅思、托福、专业论文阅读和美剧日常口语等目标筛选生词 |
+| 🎵 按歌名搜索 | 通过官方歌曲目录确认歌曲、歌手和版本，展示官方试听，不下载或提供整首音乐 |
+| 🎙️ 英文歌词识别 | 上传本地 MP3、WAV、M4A、OGG 或 FLAC，在浏览器生成轻量分片后用自有 OpenAI / Groq 语音模型转写 |
+| 🧠 语境筛词 | 根据四级、六级、考研、雅思、托福、专业论文、美剧日常口语和英文歌曲等目标筛选生词 |
 | 🌱 适配真实水平 | 新增 A1、A2、B1 基础档位，也可用一句话自定义自己的词汇水平和目标 |
 | ＋ 词汇扩展 | 可选择仅看核心生词、附带常用短语，或同时查看派生词与短语 |
 | ✍️ 人工审核 | AI 只负责建议，你决定哪些词真正进入词本 |
@@ -124,7 +128,8 @@ The model learns robust temporal representations from noisy signals.
 
 拾词处理英文材料时遵循“先本地、后分析”的原则：
 
-- 文件文字、图片英文内容与字幕都在浏览器本地提取或清洗，原文件、原图和字幕文件不上传；
+- 文件文字、图片英文内容与字幕都在浏览器本地提取或清洗，原文件、原图和字幕文件不上传；音乐原文件也在浏览器解码，不作为完整文件上传；
+- 歌名搜索词会发送给 Apple 公开歌曲目录；开始音乐识别后，浏览器生成的 30 秒以内 WAV 分片才会发送给用户选择的 OpenAI 或 Groq；
 - 只有你确认分析的文本才会发送给所选 AI 服务商；
 - 访问者可选择将 AI API Key、墨墨 Token 和所选模型保存在当前浏览器的 `localStorage`，重新打开网站后自动恢复；
 - 在公共设备上可以关闭“记住连接”，此时凭据仅保存在当前标签页的 `sessionStorage`；
@@ -168,6 +173,9 @@ npm audit --omit=dev
 - **Document parsing**：`pdfjs-dist`、`mammoth`
 - **Image OCR**：`Tesseract.js`（英文识别引擎与语言数据本地托管）
 - **Subtitle parsing**：原生 JavaScript 本地解析 SRT、VTT、ASS、SSA，清洗双语字幕并保留时间轴
+- **Music catalog**：Apple iTunes Search API，仅用于歌曲元数据、封面和官方试听
+- **Audio processing**：Web Audio API 本地解码、单声道混音、16 kHz 重采样与 WAV 分片
+- **Speech-to-text**：用户自有 OpenAI / Groq API，服务端固定地址白名单
 - **AI integration**：OpenAI-compatible API
 - **Model discovery**：服务端官方地址白名单、动态模型目录、文本模型过滤与手填兜底
 - **Deployment**：Vercel
@@ -179,12 +187,17 @@ npm audit --omit=dev
 momo-reading-assistant/
 ├── api/
 │   ├── analyze.mjs       # AI 语境筛词接口
+│   ├── music-search.mjs  # 官方歌曲目录搜索代理
+│   ├── transcribe.mjs    # 音频分片转写代理
 │   ├── models.mjs        # 使用访客 Key 识别可用文本模型
 │   ├── quota.mjs         # 免费体验额度接口
 │   └── sync.mjs          # 墨墨云词本同步接口
 ├── public/
 │   ├── index.html        # 拾词工作台
 │   ├── app.js            # 前端交互逻辑
+│   ├── audio-utils.js    # 本地音频混音、重采样与 WAV 分片
+│   ├── music.js          # 歌曲搜索、音频识别与工作台交接
+│   ├── music/            # 音乐歌词独立页面
 │   ├── subtitle-parser.js # 本地字幕解析与双语清洗
 │   ├── subtitles.js      # 字幕时间轴与工作台交接
 │   ├── subtitles/        # 美剧字幕独立页面
@@ -219,9 +232,10 @@ AI 提供建议，但不替你做决定。
 
 ## 📌 项目状态
 
-当前版本已经上线，支持从英文材料中提取文本、AI 语境筛词、人工审核以及墨墨云词本同步。后续可以继续完善：
+当前版本已经上线，支持从英文材料、图片、美剧字幕与用户持有的英文歌曲中整理语境，经过 AI 筛词和人工审核后同步到墨墨云词本。后续可以继续完善：
 
 - 扫描 PDF 的逐页 OCR 支持；
+- 视频文件与实时语音识别；
 - 更丰富的词汇难度和领域标签；
 - 生词结果导出与复习统计；
 - 更细粒度的隐私和数据管理控制；

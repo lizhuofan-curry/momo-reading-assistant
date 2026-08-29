@@ -18,6 +18,12 @@ test("subtitle prompt prioritizes reusable spoken English", () => {
   assert.match(prompt, /排除角色名/);
 });
 
+test("music prompt prioritizes idioms and filters lyric noise", () => {
+  const prompt = buildPrompt("[01:05] You light up every corner of my mind.", "英文歌曲与歌词", 10, "phrases");
+  assert.match(prompt, /动词短语、习语、隐喻核心词/);
+  assert.match(prompt, /排除歌手名、歌曲名、拟声词/);
+});
+
 test("full expansion is normalized and bounded", () => {
   const words = normalize([{
     word: "robust",
