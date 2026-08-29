@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="翻译单个英文单词或中英文句子，查看语境释义、用法、例句与关键表达。">
+  <title>即时翻译 · 拾词</title>
+  <link rel="stylesheet" href="/site.css">
+</head>
+<body class="translate-page">
+  <header class="topbar"><nav class="nav"><a class="brand" href="/"><span class="brand-mark">拾</span><strong>拾词</strong></a><div class="nav-links"><a aria-current="page" href="/translate/">即时翻译</a><a href="/music/">音乐歌词</a><a href="/subtitles/">美剧字幕</a><a href="/guide/">使用教程</a><a href="/privacy/">隐私说明</a><a href="/connections/">连接设置</a><a class="nav-cta" href="/">返回工作台</a></div></nav></header>
+  <main class="page translate-main">
+    <section class="translate-hero">
+      <div><div class="eyebrow">Margin translator · 中英互译</div><h1>不只给答案，也把一句话讲明白。</h1><p>输入一个英文单词，查看语境释义与常用搭配；输入中英文句子，得到自然译文和关键表达。</p></div>
+      <div class="translation-specimen" aria-hidden="true"><span>ORIGINAL</span><strong>Could you<br>give me a hand?</strong><i></i><span>TRANSLATION</span><b>你能帮我一下吗？</b></div>
+    </section>
+
+    <section class="translator-shell">
+      <section class="sheet translator-input-sheet">
+        <div class="translation-toolbar"><div class="translation-modes" role="group" aria-label="翻译类型"><button class="translation-mode selected" data-kind="auto" type="button">自动判断</button><button class="translation-mode" data-kind="word" type="button">单个单词</button><button class="translation-mode" data-kind="sentence" type="button">句子翻译</button></div><button class="quiet-button" id="swap-example" type="button">换个示例 ↻</button></div>
+        <label for="translation-input">要翻译的内容</label>
+        <div class="translation-editor"><textarea id="translation-input" maxlength="1200" placeholder="输入 robust，或粘贴一句英文 / 中文…" autofocus></textarea><span id="translation-count">0 / 1200</span></div>
+        <div class="translation-source"><div><strong>AI 来源</strong><span id="translation-source-note">正在读取免费体验状态…</span></div><div class="translation-source-actions"><button class="source-choice selected" data-mode="free" type="button">免费体验</button><button class="source-choice" data-mode="own" type="button">我的 API</button></div></div>
+        <button class="button translate-button" id="translate-now" type="button">开始翻译 <span>⌘ Enter</span></button>
+        <p class="status" id="translation-status">自动模式会把单个英文词识别为词典查询，其余内容按句子翻译。</p>
+      </section>
+
+      <section class="sheet translation-output-sheet" aria-live="polite">
+        <div class="translation-output-heading"><div><span class="badge">RESULT</span><h2>翻译结果</h2></div><button class="quiet-button hidden" id="copy-translation" type="button">复制结果</button></div>
+        <div class="translation-empty" id="translation-empty"><div class="dictionary-lines"><i></i><i></i><i></i></div><strong>译文会写在这里</strong><p>试试输入 <button class="inline-example" data-example="robust" type="button">robust</button> 或 <button class="inline-example" data-example="Could you give me a hand?" type="button">Could you give me a hand?</button></p></div>
+        <div class="translation-result hidden" id="translation-result"></div>
+      </section>
+    </section>
+
+    <section class="translation-note"><strong>翻译不是唯一答案。</strong><p>页面会优先给出自然、适合当前语境的表达，并标记语气和关键短语。正式论文、合同或医疗内容仍应由专业人员复核。</p></section>
+  </main>
+  <footer class="footer"><span>拾词 · 从查一个词开始理解一段话</span><span><a href="/privacy/">隐私说明</a> · <a href="/help/">常见问题</a> · <a href="https://zhuofan.me">作者主页</a></span></footer>
+  <div class="subtitle-toast" id="translation-toast" role="status"></div>
+  <script type="module" src="/translate.js"></script>
+</body>
+</html>

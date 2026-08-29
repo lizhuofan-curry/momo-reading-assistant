@@ -7,6 +7,8 @@
 <p>
   <a href="https://momo.zhuofan.me"><strong>🌐 在线体验</strong></a>
   ·
+  <a href="https://momo.zhuofan.me/translate/">即时翻译</a>
+  ·
   <a href="https://momo.zhuofan.me/music/">音乐歌词</a>
   ·
   <a href="https://momo.zhuofan.me/subtitles/">美剧字幕</a>
@@ -63,6 +65,7 @@
 | 功能 | 说明 |
 | --- | --- |
 | 📄 多格式导入 | 支持 PDF、DOCX、TXT、Markdown，也可以直接粘贴英文文本 |
+| ↔️ 即时翻译 | 自动区分英文单词与中英文句子；提供词典释义、音标、例句，或自然译文、语气和关键表达 |
 | 🖼️ 本地图片 OCR | 支持 PNG、JPG、WEBP、BMP；原图留在浏览器，仅识别后的文字进入筛词流程 |
 | 🎬 美剧字幕整理 | 支持 SRT、VTT、ASS、SSA 和粘贴字幕；本地清除中文、样式、重复台词并保留时间码 |
 | 🎵 按歌名搜索 | 通过官方歌曲目录确认歌曲、歌手和版本，展示官方试听，不下载或提供整首音乐 |
@@ -130,7 +133,7 @@ The model learns robust temporal representations from noisy signals.
 
 - 文件文字、图片英文内容与字幕都在浏览器本地提取或清洗，原文件、原图和字幕文件不上传；音乐原文件也在浏览器解码，不作为完整文件上传；
 - 歌名搜索词会发送给 Apple 公开歌曲目录；开始音乐识别后，浏览器生成的 30 秒以内 WAV 分片才会发送给用户选择的 OpenAI 或 Groq；
-- 只有你确认分析的文本才会发送给所选 AI 服务商；
+- 只有你确认分析或点击翻译的文本才会发送给所选 AI 服务商；
 - 访问者可选择将 AI API Key、墨墨 Token 和所选模型保存在当前浏览器的 `localStorage`，重新打开网站后自动恢复；
 - 在公共设备上可以关闭“记住连接”，此时凭据仅保存在当前标签页的 `sessionStorage`；
 - “清除”按钮会同时删除该项在 `localStorage` 与 `sessionStorage` 中的数据；
@@ -187,6 +190,7 @@ npm audit --omit=dev
 momo-reading-assistant/
 ├── api/
 │   ├── analyze.mjs       # AI 语境筛词接口
+│   ├── translate.mjs     # 单词查询与句子翻译接口
 │   ├── music-search.mjs  # 官方歌曲目录搜索代理
 │   ├── transcribe.mjs    # 音频分片转写代理
 │   ├── models.mjs        # 使用访客 Key 识别可用文本模型
@@ -195,6 +199,8 @@ momo-reading-assistant/
 ├── public/
 │   ├── index.html        # 拾词工作台
 │   ├── app.js            # 前端交互逻辑
+│   ├── translate.js      # 翻译模式、结果卡片与复制交互
+│   ├── translate/        # 即时翻译独立页面
 │   ├── audio-utils.js    # 本地音频混音、重采样与 WAV 分片
 │   ├── music.js          # 歌曲搜索、音频识别与工作台交接
 │   ├── music/            # 音乐歌词独立页面

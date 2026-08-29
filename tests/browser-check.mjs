@@ -70,13 +70,36 @@ if (!await page.locator(".word-expansion").first().getByText("robustness", { exa
 if (!await page.locator("#result-status.success").isVisible()) throw new Error("结果成功状态未显示");
 await page.locator("#token-help").click();
 if (!await page.locator("#token-explainer").getByText(/只分析和审核生词不需要 Token/).isVisible()) throw new Error("Token 说明未展开");
-for (const path of ["/music/", "/subtitles/", "/guide/", "/privacy/", "/help/", "/connections/"]) {
+for (const path of ["/translate/", "/music/", "/subtitles/", "/guide/", "/privacy/", "/help/", "/connections/"]) {
   const child = await context.newPage();
   child.on("pageerror", error => pageErrors.push(`${path}: ${error.message}`));
   await child.goto(new URL(path, baseUrl).href, { waitUntil: "networkidle" });
   if (!(await child.locator("main").innerText()).trim()) throw new Error(`${path} 页面为空`);
   await child.close();
 }
+const translatePage = await context.newPage();
+translatePage.on("pageerror", error => pageErrors.push(`/translate/: ${error.message}`));
+await translatePage.route("**/api/translate", async route => {
+  const request = route.request().postDataJSON();
+  const result = request.text === "robust"
+    ? { kind: "word", original: "robust", word: "robust", phonetic: "rəʊˈbʌst", partOfSpeech: "adjective", meanings: ["稳健的", "强健的"], usage: "常用于描述方法、系统或结论。", example: "The method is robust to noise.", exampleTranslation: "该方法对噪声具有稳健性。", phrases: ["robust to noise — 对噪声稳健"] }
+    : { kind: "sentence", original: request.text, translation: "你能帮我一下吗？", literal: "你能给我一只手吗？", tone: "日常请求", keyExpressions: ["give me a hand — 帮我一下"], alternatives: ["可以搭把手吗？"] };
+  await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, result, provider: "测试模型", trial: { started: true, active: true, daysRemaining: 7, endsAt: "2026-09-05T00:00:00.000Z" } }) });
+});
+await translatePage.goto(new URL("/translate/", baseUrl).href, { waitUntil: "networkidle" });
+if (!await translatePage.getByRole("heading", { name: /不只给答案/ }).isVisible()) throw new Error("即时翻译页面未显示");
+await translatePage.locator("#translation-input").fill("robust");
+await translatePage.getByRole("button", { name: /开始翻译/ }).click();
+await translatePage.locator(".word-translation").waitFor({ state: "visible" });
+if (!await translatePage.getByText("稳健的", { exact: true }).isVisible()) throw new Error("单词释义卡没有显示");
+if (!await translatePage.getByText("robust to noise — 对噪声稳健", { exact: true }).isVisible()) throw new Error("单词搭配没有显示");
+await translatePage.locator("#translation-input").fill("Could you give me a hand?");
+await translatePage.getByRole("button", { name: /开始翻译/ }).click();
+await translatePage.locator(".sentence-translation").waitFor({ state: "visible" });
+if (!await translatePage.locator("#translation-result").getByText("你能帮我一下吗？", { exact: true }).isVisible()) throw new Error("句子自然译文没有显示");
+if (!await translatePage.locator("#translation-result").getByText("give me a hand — 帮我一下", { exact: true }).isVisible()) throw new Error("句子关键表达没有显示");
+await translatePage.screenshot({ path: fileURLToPath(new URL("translate-sentence.png", output)), fullPage: true });
+await translatePage.close();
 const musicPage = await context.newPage();
 musicPage.on("pageerror", error => pageErrors.push(`/music/: ${error.message}`));
 await musicPage.route("**/api/music-search*", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, source: "Apple iTunes Search", results: [{ id: "music-1", title: "Yellow", artist: "Coldplay", album: "Parachutes", artworkUrl: "", previewUrl: "", duration: 266000, explicit: false, storeUrl: "https://music.apple.com/us/album/yellow/1122782080?i=1122782283" }] }) }));
@@ -229,6 +252,13 @@ if (!await musicMobile.getByRole("heading", { name: /听见旋律/ }).isVisible(
 if (!await musicMobile.locator("#music-query").isVisible()) throw new Error("移动端歌曲搜索未显示");
 await musicMobile.screenshot({ path: fileURLToPath(new URL("music-mobile.png", output)), fullPage: true });
 await musicMobile.close();
+const translateMobile = await context.newPage();
+await translateMobile.setViewportSize({ width: 390, height: 844 });
+await translateMobile.goto(new URL("/translate/", baseUrl).href, { waitUntil: "networkidle" });
+if (!await translateMobile.locator("#translation-input").isVisible()) throw new Error("移动端即时翻译输入框未显示");
+if (!await translateMobile.getByRole("button", { name: /开始翻译/ }).isVisible()) throw new Error("移动端翻译按钮未显示");
+await translateMobile.screenshot({ path: fileURLToPath(new URL("translate-mobile.png", output)), fullPage: true });
+await translateMobile.close();
 await browser.close();
 if (consoleErrors.length || pageErrors.length) throw new Error(`浏览器错误：${[...consoleErrors, ...pageErrors].join(" | ")}`);
 console.log("BROWSER_CHECK_OK");
