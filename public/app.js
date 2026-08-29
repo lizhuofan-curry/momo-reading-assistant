@@ -1,9 +1,14 @@
+import { addCandidate, clearCandidates, duplicateSummary, listCandidates, rememberSynced, removeCandidate } from "./candidate-store.js";
+
 const $ = id => document.getElementById(id);
 let selectedFile = null;
 let words = [];
 let allSelected = true;
 let freeTrial = { started: false, active: false, daysRemaining: 0, endsAt: null };
 let imagePreviewUrl = "";
+let lookupSelection = "";
+let lookupResult = null;
+let syncDuplicateConfirmed = false;
 
 function toast(message, error = false) {
   const element = $("toast");
@@ -99,6 +104,113 @@ function escapeHtml(value) {
   const div = document.createElement("div");
   div.textContent = value ?? "";
   return div.innerHTML;
+}
+
+function renderCandidateBox() {
+  const candidates = listCandidates();
+  $("candidate-count").textContent = candidates.length;
+  $("candidate-list").innerHTML = candidates.length
+    ? candidates.map(item => `<article class="candidate-item"><strong>${escapeHtml(item.word)}</strong><span>${escapeHtml(item.meaning || "等待补充释义")}</span><small>${escapeHtml(item.source)}${item.sentence ? ` · ${escapeHtml(item.sentence)}` : ""}</small><button class="candidate-remove" data-lemma="${escapeHtml(item.lemma)}" type="button">移除</button></article>`).join("")
+    : `<div class="candidate-empty">候选箱还是空的。<br>可以从即时翻译、划词查询或筛词结果中收藏。</div>`;
+  $("merge-candidates").disabled = !candidates.length;
+  $("candidate-list").querySelectorAll(".candidate-remove").forEach(button => button.addEventListener("click", () => {
+    removeCandidate(button.dataset.lemma);
+    renderCandidateBox();
+    if (words.length) renderWords();
+  }));
+}
+
+function toggleCandidateBox(open) {
+  $("candidate-drawer").classList.toggle("hidden", !open);
+  $("candidate-toggle").setAttribute("aria-expanded", String(open));
+  if (open) {
+    $("lookup-panel").classList.add("hidden");
+    renderCandidateBox();
+  }
+}
+
+function mergeCandidatesIntoResults() {
+  const candidates = listCandidates();
+  if (!candidates.length) return toast("候选箱还是空的。", true);
+  let added = 0;
+  for (const candidate of candidates) {
+    const existing = words.find(item => String(item.lemma).toLowerCase() === candidate.lemma);
+    if (existing) { existing.selected = true; continue; }
+    words.push({ word: candidate.word, lemma: candidate.lemma, meaning: candidate.meaning, sentence: candidate.sentence || `Collected word: ${candidate.word}.`, mnemonic: "", reason: candidate.source, derivatives: [], phrases: [], selected: true });
+    added += 1;
+  }
+  renderWords();
+  toggleCandidateBox(false);
+  setResultStatus("success", "候选生词已合并", `新增 ${added} 个词；已存在的词已自动合并并重新选中。`);
+  toast(`候选箱已合并，新增 ${added} 个词`);
+}
+
+function selectedWordFrom(textarea) {
+  const selected = textarea.value.slice(textarea.selectionStart, textarea.selectionEnd).trim();
+  return /^[A-Za-z][A-Za-z'-]{1,49}$/.test(selected) ? selected : "";
+}
+
+function offerSelectionLookup(event) {
+  const selected = selectedWordFrom(event.currentTarget);
+  if (!selected) return;
+  lookupSelection = selected;
+  lookupResult = null;
+  $("lookup-word").textContent = selected;
+  $("lookup-result").classList.add("hidden");
+  $("lookup-run").classList.remove("hidden");
+  $("lookup-run").textContent = "查看语境释义";
+  $("lookup-panel").classList.remove("hidden");
+  toggleCandidateBox(false);
+}
+
+async function lookupSelectedWord() {
+  const mode = $("ai-mode").value;
+  const config = mode === "own" ? ownAiConfig() : null;
+  if (mode === "free" && !freeTrial.active) return toast("一周免费体验已结束，请连接自己的 AI API。", true);
+  if (mode === "own" && !config) return toast("请先连接并测试自己的 AI API。", true);
+  setBusy($("lookup-run"), true, "正在查询…");
+  try {
+    const data = await post("/api/translate", { mode, ...(config || {}), text: lookupSelection, kind: "word" });
+    lookupResult = data.result;
+    if (mode === "free" && data.trial) { freeTrial = data.trial; updateConnectionUI(); }
+    $("lookup-result").innerHTML = `<b>${escapeHtml(lookupResult.meanings.join("；"))}</b>${lookupResult.usage ? `<p>${escapeHtml(lookupResult.usage)}</p>` : ""}<button class="lookup-save" id="lookup-save" type="button">收藏到候选箱</button>`;
+    $("lookup-result").classList.remove("hidden");
+    $("lookup-run").classList.add("hidden");
+    $("lookup-save").addEventListener("click", () => {
+      const saved = addCandidate({ word: lookupResult.word, lemma: lookupResult.word, meaning: lookupResult.meanings.join("；"), sentence: lookupResult.example, source: "阅读划词" });
+      renderCandidateBox();
+      $("lookup-save").textContent = saved.added ? `✓ 已收藏 · 候选箱 ${saved.count}` : "✓ 候选箱已有";
+      toast(saved.added ? "已收藏到跨页面候选箱" : "候选箱已有这个词，释义已更新");
+    });
+  } catch (error) { toast(error.message, true); }
+  finally { setBusy($("lookup-run"), false); }
+}
+
+function syncWarningElement() {
+  let element = $("sync-duplicate");
+  if (element) return element;
+  element = document.createElement("div");
+  element.id = "sync-duplicate";
+  element.className = "sync-duplicate hidden";
+  element.innerHTML = `<span id="sync-duplicate-text"></span><br><button id="exclude-duplicates" type="button">排除这些词</button>`;
+  $("sync").before(element);
+  $("exclude-duplicates").addEventListener("click", () => {
+    const repeated = new Set(duplicateSummary(words.filter(item => item.selected).map(item => item.lemma)).previouslySynced);
+    words.forEach(item => { if (repeated.has(String(item.lemma).toLowerCase())) item.selected = false; });
+    syncDuplicateConfirmed = false;
+    renderWords();
+    toast(`已排除 ${repeated.size} 个曾同步词`);
+  });
+  return element;
+}
+
+function updateDuplicateWarning() {
+  const element = syncWarningElement();
+  const chosen = words.filter(item => item.selected).map(item => item.lemma);
+  const summary = duplicateSummary(chosen);
+  element.classList.toggle("hidden", !summary.previouslySynced.length);
+  if (summary.previouslySynced.length) $("sync-duplicate-text").textContent = `${summary.previouslySynced.length} 个词曾在此浏览器同步过：${summary.previouslySynced.slice(0, 5).join("、")}${summary.previouslySynced.length > 5 ? "…" : ""}`;
+  if (!summary.previouslySynced.length) syncDuplicateConfirmed = false;
 }
 
 const selectDescriptions = {
@@ -337,6 +449,8 @@ function updateCount() {
   $("result-count").textContent = `已选 ${count} / ${words.length} 个词`;
   allSelected = count === words.length;
   $("toggle-all").textContent = allSelected ? "全部取消" : "全部选择";
+  syncDuplicateConfirmed = false;
+  updateDuplicateWarning();
 }
 
 function renderExtensions(item) {
@@ -350,12 +464,22 @@ function renderExtensions(item) {
 }
 
 function renderWords() {
+  const candidateLemmas = new Set(listCandidates().map(item => item.lemma));
+  const syncedLemmas = new Set(duplicateSummary(words.map(item => item.lemma)).previouslySynced);
   $("empty").classList.add("hidden");
   $("results").classList.remove("hidden");
-  $("word-list").innerHTML = words.map((item, index) => `<article class="word-entry"><input type="checkbox" aria-label="选择 ${escapeHtml(item.lemma)}" data-index="${index}" ${item.selected ? "checked" : ""}><div><div class="word-line"><strong>${escapeHtml(item.word)}</strong><span class="lemma">${escapeHtml(item.lemma)}</span></div><div class="meaning">${escapeHtml(item.meaning || "未生成释义")}</div><p class="sentence">${escapeHtml(item.sentence)}</p><div class="chips">${item.mnemonic ? `<span class="chip">助记：${escapeHtml(item.mnemonic)}</span>` : ""}${item.reason ? `<span class="chip reason">${escapeHtml(item.reason)}</span>` : ""}</div>${renderExtensions(item)}</div></article>`).join("");
+  $("word-list").innerHTML = words.map((item, index) => { const lemma = String(item.lemma).toLowerCase(); const saved = candidateLemmas.has(lemma); return `<article class="word-entry"><input type="checkbox" aria-label="选择 ${escapeHtml(item.lemma)}" data-index="${index}" ${item.selected ? "checked" : ""}><div><div class="word-line"><strong>${escapeHtml(item.word)}</strong><span class="lemma">${escapeHtml(item.lemma)}</span><span class="word-tools">${syncedLemmas.has(lemma) ? `<span class="chip synced-chip">曾同步</span>` : ""}<button class="collect-word${saved ? " saved" : ""}" data-index="${index}" type="button">${saved ? "✓ 候选箱已有" : "＋ 收藏"}</button></span></div><div class="meaning">${escapeHtml(item.meaning || "未生成释义")}</div><p class="sentence">${escapeHtml(item.sentence)}</p><div class="chips">${item.mnemonic ? `<span class="chip">助记：${escapeHtml(item.mnemonic)}</span>` : ""}${item.reason ? `<span class="chip reason">${escapeHtml(item.reason)}</span>` : ""}</div>${renderExtensions(item)}</div></article>`; }).join("");
   $("word-list").querySelectorAll("input[type=checkbox]").forEach(input => input.addEventListener("change", event => {
     words[Number(event.target.dataset.index)].selected = event.target.checked;
     updateCount();
+  }));
+  $("word-list").querySelectorAll(".collect-word").forEach(button => button.addEventListener("click", () => {
+    const item = words[Number(button.dataset.index)];
+    const saved = addCandidate({ ...item, source: "AI 筛词" });
+    renderCandidateBox();
+    button.textContent = saved.added ? `✓ 已收藏 · ${saved.count}` : "✓ 候选箱已有";
+    button.classList.add("saved");
+    toast(saved.added ? "已收藏到跨页面候选箱" : "候选箱已有这个词，内容已更新");
   }));
   updateCount();
 }
@@ -409,6 +533,12 @@ function loadExternalImport() {
 
 $("hero-start").addEventListener("click", () => $("workspace").scrollIntoView({ behavior: "smooth", block: "start" }));
 $("try-demo").addEventListener("click", loadDemo);
+$("candidate-toggle").addEventListener("click", () => toggleCandidateBox($("candidate-drawer").classList.contains("hidden")));
+$("candidate-close").addEventListener("click", () => toggleCandidateBox(false));
+$("merge-candidates").addEventListener("click", mergeCandidatesIntoResults);
+$("clear-candidates").addEventListener("click", () => { clearCandidates(); renderCandidateBox(); if (words.length) renderWords(); toast("候选生词箱已清空"); });
+$("lookup-close").addEventListener("click", () => $("lookup-panel").classList.add("hidden"));
+$("lookup-run").addEventListener("click", lookupSelectedWord);
 $("quota-badge").addEventListener("click", () => {
   const expanded = $("quota-badge").getAttribute("aria-expanded") === "true";
   $("quota-badge").setAttribute("aria-expanded", String(!expanded));
@@ -445,6 +575,10 @@ $("upload-tab").addEventListener("click", () => showMode("upload"));
 $("paste-tab").addEventListener("click", () => showMode("paste"));
 $("paste-text").addEventListener("input", () => setSourceText($("paste-text").value));
 $("source-text").addEventListener("input", updateCharCount);
+["paste-text", "source-text"].forEach(id => {
+  $(id).addEventListener("mouseup", offerSelectionLookup);
+  $(id).addEventListener("keyup", event => { if (event.shiftKey) offerSelectionLookup(event); });
+});
 $("file-input").addEventListener("change", event => { if (event.target.files[0]) setFile(event.target.files[0]); });
 $("remove-file").addEventListener("click", clearFile);
 ["dragenter", "dragover"].forEach(name => $("dropzone").addEventListener(name, event => { event.preventDefault(); $("dropzone").classList.add("dragging"); }));
@@ -507,11 +641,24 @@ $("sync").addEventListener("click", async () => {
   if (!token) { toast("请先连接并测试你自己的墨墨 Access Token。", true); setTimeout(() => { location.href = "/connections/"; }, 900); return; }
   const chosen = words.filter(word => word.selected).map(word => word.lemma);
   if (!chosen.length) return toast("请至少选择一个生词", true);
+  const preflight = duplicateSummary(chosen);
+  if (preflight.previouslySynced.length && !syncDuplicateConfirmed) {
+    syncDuplicateConfirmed = true;
+    syncWarningElement().classList.remove("hidden");
+    $("sync-duplicate-text").textContent = `${preflight.previouslySynced.length} 个词曾在此浏览器同步过。可以排除它们，或再次点击下方按钮仍然同步全部词。`;
+    $("sync").textContent = `仍然同步全部 ${preflight.unique.length} 个词`;
+    toast("发现曾同步过的词，请先确认", true);
+    return;
+  }
   const button = $("sync");
+  button.dataset.label = "↻ 同步到我的墨墨云词本";
   setBusy(button, true, "正在创建云词本…");
   setResultStatus("loading", "正在同步至墨墨", `正在创建“${$("title").value || "未命名词本"}”，请不要关闭页面。`);
   try {
     const data = await post("/api/sync", { token, title: $("title").value, tags: [$("tag").value], words: chosen, brief: `由拾词生成，共 ${chosen.length} 个词` });
+    rememberSynced(chosen);
+    syncDuplicateConfirmed = false;
+    renderWords();
     setResultStatus("success", "已同步到墨墨云词本", `${data.title} · ${data.count} 个词。现在可在墨墨 App 中搜索该名称。`);
     toast(`${data.title} 已创建，共 ${data.count} 个词`);
   } catch (error) {
@@ -521,6 +668,8 @@ $("sync").addEventListener("click", async () => {
 });
 
 document.querySelectorAll("select.pretty-native").forEach(enhanceSelect);
+renderCandidateBox();
+syncWarningElement();
 loadExternalImport();
 window.addEventListener("pageshow", updateConnectionUI);
 await loadQuota();

@@ -1,3 +1,5 @@
+import { addCandidate, listCandidates } from "./candidate-store.js";
+
 const $ = id => document.getElementById(id);
 let kind = "auto";
 let mode = "free";
@@ -67,6 +69,11 @@ function render(result) {
   $("translation-empty").classList.add("hidden");
   $("translation-result").classList.remove("hidden");
   $("copy-translation").classList.remove("hidden");
+  $("collect-translation").classList.toggle("hidden", result.kind !== "word");
+  if (result.kind === "word") {
+    const saved = listCandidates().some(item => item.lemma === result.word.toLowerCase());
+    $("collect-translation").textContent = saved ? `✓ 候选箱已有` : `＋ 收藏到候选箱`;
+  }
   $("translation-result").innerHTML = result.kind === "word" ? wordResult(result) : sentenceResult(result);
 }
 
@@ -113,6 +120,14 @@ $("copy-translation").addEventListener("click", async () => {
   if (!lastResult) return;
   const text = lastResult.kind === "word" ? `${lastResult.word} ${lastResult.phonetic ? `/${lastResult.phonetic}/ ` : ""}${lastResult.meanings.join("；")}` : `${lastResult.original}\n${lastResult.translation}`;
   try { await navigator.clipboard.writeText(text); toast("翻译结果已复制"); } catch { toast("浏览器未允许复制，请手动选择文本。", true); }
+});
+$("collect-translation").addEventListener("click", () => {
+  if (!lastResult || lastResult.kind !== "word") return;
+  try {
+    const saved = addCandidate({ word: lastResult.word, lemma: lastResult.word, meaning: lastResult.meanings.join("；"), sentence: lastResult.example, source: "即时翻译" });
+    $("collect-translation").textContent = saved.added ? `✓ 已收藏 · 候选箱 ${saved.count}` : `✓ 候选箱已有`;
+    toast(saved.added ? "已加入跨页面候选生词箱" : "候选箱中已有这个词，释义已更新");
+  } catch (error) { toast(error.message, true); }
 });
 
 fetch("/api/quota", { cache: "no-store" }).then(response => response.json()).then(data => { if (data.trial) trial = data.trial; if (!trial.active && ownConfig()) mode = "own"; refreshSource(); }).catch(refreshSource);
