@@ -507,17 +507,18 @@ function loadExternalImport() {
   let kind = "subtitle";
   try {
     const music = JSON.parse(sessionStorage.getItem("momo_music_import") || "null");
+    const video = JSON.parse(sessionStorage.getItem("momo_video_import") || "null");
     const subtitle = JSON.parse(sessionStorage.getItem("momo_subtitle_import") || "null");
-    imported = music?.text ? music : subtitle;
-    kind = music?.text ? "music" : "subtitle";
+    imported = video?.text ? video : music?.text ? music : subtitle;
+    kind = video?.text ? "video" : music?.text ? "music" : "subtitle";
   } catch { imported = null; }
   if (!imported?.text || Date.now() - Number(imported.importedAt || 0) > 30 * 60 * 1000) return;
-  sessionStorage.removeItem(kind === "music" ? "momo_music_import" : "momo_subtitle_import");
+  sessionStorage.removeItem(`momo_${kind}_import`);
   showMode("paste");
   $("paste-text").value = String(imported.text).slice(0, 150000);
   setSourceText($("paste-text").value);
-  $("title").value = String(imported.title || "美剧台词生词").slice(0, 80);
-  $("tag").value = kind === "music" ? "音乐歌词" : "美剧生词";
+  $("title").value = String(imported.title || (kind === "video" ? "视频英文生词" : "美剧台词生词")).slice(0, 80);
+  $("tag").value = kind === "music" ? "音乐歌词" : kind === "video" ? "视频英文" : "美剧生词";
   if ([...$("level").options].some(option => option.value === imported.level)) {
     $("level").value = imported.level;
     $("level").dispatchEvent(new Event("change", { bubbles: true }));
@@ -526,9 +527,10 @@ function loadExternalImport() {
     $("expansion").value = imported.expansion;
     $("expansion").dispatchEvent(new Event("change", { bubbles: true }));
   }
-  setResultStatus("success", kind === "music" ? "歌词已带入工作台" : "字幕已带入工作台", `时间码和英文${kind === "music" ? "歌词" : "台词"}仍可编辑；确认筛选标准后再开始分析。`);
+  const label = kind === "music" ? "歌词" : kind === "video" ? "视频英文" : "字幕";
+  setResultStatus("success", `${label}已带入工作台`, `时间码和英文${kind === "music" ? "歌词" : "内容"}仍可编辑；确认筛选标准后再开始分析。`);
   $("workspace").scrollIntoView({ block: "start" });
-  toast(kind === "music" ? "歌词已带入，并切换到英文歌曲筛选" : "字幕已带入，并切换到美剧日常口语筛选");
+  toast(kind === "music" ? "歌词已带入，并切换到英文歌曲筛选" : `${label}已带入，并切换到美剧日常口语筛选`);
 }
 
 $("hero-start").addEventListener("click", () => $("workspace").scrollIntoView({ behavior: "smooth", block: "start" }));

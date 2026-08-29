@@ -1,6 +1,19 @@
 import { body, fail, json, method } from "./_lib/http.mjs";
 
 export const AUDIO_PROVIDERS = {
+  qwen: {
+    label: "阿里云百炼 · 千问 ASR",
+    endpoint: "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+    models: ["qwen3-asr-flash"],
+    defaultModel: "qwen3-asr-flash",
+    protocol: "qwen-chat"
+  },
+  siliconflow: {
+    label: "硅基流动",
+    endpoint: "https://api.siliconflow.cn/v1/audio/transcriptions",
+    models: ["FunAudioLLM/SenseVoiceSmall", "TeleAI/TeleSpeechASR"],
+    defaultModel: "FunAudioLLM/SenseVoiceSmall"
+  },
   groq: {
     label: "Groq",
     endpoint: "https://api.groq.com/openai/v1/audio/transcriptions",
@@ -28,19 +41,43 @@ function audioBuffer(value) {
 export async function transcribeAudioChunk(data, fetchImpl = fetch) {
   const provider = String(data.provider || "");
   const preset = AUDIO_PROVIDERS[provider];
-  if (!preset) throw new Error("首版音乐识别仅支持 OpenAI 或 Groq 语音服务。");
+  if (!preset) throw new Error("请选择受支持的语音识别服务商。");
   const apiKey = String(data.api_key || "").trim();
   if (!apiKey || apiKey.length > 500) throw new Error(`请填写 ${preset.label} API Key。`);
   const model = String(data.model || preset.defaultModel).trim();
   if (!preset.models.includes(model)) throw new Error("请选择页面提供的语音识别模型。");
   const audio = audioBuffer(data.audio_base64);
+  if (preset.protocol === "qwen-chat") {
+    const remote = await fetchImpl(preset.endpoint, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        messages: [{
+          role: "user",
+          content: [{ type: "input_audio", input_audio: { data: `data:audio/wav;base64,${audio.toString("base64")}` } }]
+        }],
+        asr_options: { language: "en", enable_itn: true },
+        stream: false
+      }),
+      signal: AbortSignal.timeout(55000)
+    });
+    const payload = await remote.json().catch(() => ({}));
+    if (!remote.ok) throw new Error(`${preset.label} 返回 ${remote.status}：${payload?.error?.message || payload?.message || "转写失败"}`);
+    const content = payload?.choices?.[0]?.message?.content;
+    const text = String(Array.isArray(content) ? content.map(item => item?.text || "").join(" ") : content || payload?.output?.text || "").replace(/\s+/g, " ").trim();
+    if (!text) throw new Error(`${preset.label} 没有返回有效英文文本。`);
+    return { text, segments: [], provider: preset.label, model };
+  }
   const form = new FormData();
   form.append("file", new Blob([audio], { type: "audio/wav" }), "music-chunk.wav");
   form.append("model", model);
-  form.append("language", "en");
-  form.append("temperature", "0");
+  if (data.provider !== "siliconflow") {
+    form.append("language", "en");
+    form.append("temperature", "0");
+  }
   const prompt = String(data.prompt || "").replace(/[\r\n]/g, " ").trim().slice(0, 200);
-  if (prompt) form.append("prompt", prompt);
+  if (prompt && data.provider !== "siliconflow") form.append("prompt", prompt);
   const timestamps = provider === "groq" || model === "whisper-1";
   if (timestamps) {
     form.append("response_format", "verbose_json");

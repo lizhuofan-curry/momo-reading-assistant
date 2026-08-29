@@ -1,21 +1,11 @@
 import { formatAudioTime, makeAudioChunks } from "./audio-utils.js";
+import { providerName, SPEECH_PROVIDERS } from "./speech-providers.js";
 
 const $ = id => document.getElementById(id);
 const CONFIG_KEY = "momo_audio_config";
 const REMEMBER_KEY = "momo_remember_audio";
-const MODELS = {
-  groq: [
-    { id: "whisper-large-v3-turbo", label: "Whisper Large V3 Turbo · 推荐" },
-    { id: "whisper-large-v3", label: "Whisper Large V3 · 更注重准确率" }
-  ],
-  openai: [
-    { id: "gpt-4o-mini-transcribe", label: "GPT-4o mini Transcribe · 推荐" },
-    { id: "gpt-4o-transcribe", label: "GPT-4o Transcribe · 更高准确率" },
-    { id: "whisper-1", label: "Whisper-1 · 支持片内时间段" }
-  ]
-};
-const KEY_URLS = { groq: "https://console.groq.com/keys", openai: "https://platform.openai.com/api-keys" };
-let provider = "groq";
+const MODELS = Object.fromEntries(Object.entries(SPEECH_PROVIDERS).map(([id, item]) => [id, item.models]));
+let provider = "qwen";
 let selectedFile = null;
 let preparedAudio = null;
 let localAudioUrl = "";
@@ -55,12 +45,12 @@ function saveConfig() {
 }
 
 function chooseProvider(next, savedModel = "") {
-  provider = next in MODELS ? next : "groq";
+  provider = next in MODELS ? next : "qwen";
   document.querySelectorAll(".speech-provider-button").forEach(button => button.classList.toggle("selected", button.dataset.provider === provider));
   $("speech-model").innerHTML = MODELS[provider].map(model => `<option value="${model.id}">${model.label}</option>`).join("");
   if (MODELS[provider].some(model => model.id === savedModel)) $("speech-model").value = savedModel;
-  $("speech-key-link").href = KEY_URLS[provider];
-  $("speech-key-link").textContent = `前往 ${provider === "groq" ? "Groq" : "OpenAI"} 获取 API Key ↗`;
+  $("speech-key-link").href = SPEECH_PROVIDERS[provider].keyUrl;
+  $("speech-key-link").textContent = `前往 ${providerName(provider)} 获取 API Key ↗`;
 }
 
 function restoreConfig() {
@@ -69,12 +59,12 @@ function restoreConfig() {
   if (!saved) {
     try {
       const textConfig = JSON.parse(localStorage.getItem("momo_ai_config") || sessionStorage.getItem("momo_ai_config") || "null");
-      if (["groq", "openai"].includes(textConfig?.provider)) saved = { provider: textConfig.provider, api_key: textConfig.api_key };
+      if (textConfig?.provider in SPEECH_PROVIDERS) saved = { provider: textConfig.provider, api_key: textConfig.api_key };
     } catch { /* no compatible text configuration */ }
   }
-  chooseProvider(saved?.provider || "groq", saved?.model || "");
+  chooseProvider(saved?.provider || "qwen", saved?.model || "");
   $("speech-key").value = saved?.api_key || "";
-  if (saved?.api_key) status("speech-status", `已恢复 ${provider === "groq" ? "Groq" : "OpenAI"} 语音连接；首次识别会验证模型权限。`, "ok");
+  if (saved?.api_key) status("speech-status", `已恢复 ${providerName(provider)} 语音连接；首次识别会验证模型权限。`, "ok");
 }
 
 async function searchMusic(event) {
@@ -221,7 +211,7 @@ function renderLyrics() {
 
 async function recognizeMusic() {
   if (!selectedFile || !preparedAudio) return toast("请先选择并成功解码本地音乐。", true);
-  if (!$("speech-key").value.trim()) return toast(`请填写 ${provider === "groq" ? "Groq" : "OpenAI"} API Key。`, true);
+  if (!$("speech-key").value.trim()) return toast(`请填写 ${providerName(provider)} API Key。`, true);
   saveConfig();
   recognitionController = new AbortController();
   $("recognize-music").disabled = true;
