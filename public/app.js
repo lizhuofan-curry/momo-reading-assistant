@@ -80,8 +80,9 @@ function escapeHtml(value) {
 }
 
 const selectDescriptions = {
-  level: () => "按你的学习目标判断词汇价值",
+  level: value => value === "custom" ? "按自己的实际情况描述" : "按你的学习目标判断词汇价值",
   "max-words": value => `最多生成 ${value} 个候选词`,
+  expansion: value => ({ none: "结果更简洁，适合直接建词本", phrases: "每个词补充常用搭配", full: "每个词补充词族与常用搭配" }[value]),
   "ai-mode": value => value === "free" ? "使用本站免费体验额度" : "使用已保存的模型连接"
 };
 
@@ -121,7 +122,7 @@ function enhanceSelect(select) {
   const render = () => {
     const selected = select.selectedOptions[0];
     const description = selectDescriptions[select.id]?.(select.value) || "点击展开更多选项";
-    trigger.innerHTML = `<span class="select-mark">${escapeHtml(select.dataset.mark || "⌄")}</span><span class="select-copy"><strong>${escapeHtml(selected?.textContent || "请选择")}</strong><small>${escapeHtml(description)}</small></span><span class="select-chevron" aria-hidden="true">⌄</span>`;
+    trigger.innerHTML = `<span class="select-mark">${escapeHtml(select.dataset.mark || "⌄")}</span><span class="select-copy"><strong>${escapeHtml(selected?.textContent || "请选择")}</strong><small>${escapeHtml(description)}</small></span><span class="select-action" aria-hidden="true"><span>展开</span><b>⌄</b></span>`;
     menu.querySelectorAll(".select-option").forEach((option, index) => {
       const active = index === select.selectedIndex;
       option.classList.toggle("selected", active);
@@ -316,11 +317,21 @@ function updateCount() {
   $("toggle-all").textContent = allSelected ? "全部取消" : "全部选择";
 }
 
+function renderExtensions(item) {
+  const derivatives = Array.isArray(item.derivatives) ? item.derivatives : [];
+  const phrases = Array.isArray(item.phrases) ? item.phrases : [];
+  if (!derivatives.length && !phrases.length) return "";
+  const count = derivatives.length + phrases.length;
+  const derivativeHtml = derivatives.length ? `<div class="extension-group"><b>词族</b>${derivatives.map(entry => `<div class="extension-item"><strong>${escapeHtml(entry.word)}</strong><span>${escapeHtml(entry.meaning)}</span></div>`).join("")}</div>` : "";
+  const phraseHtml = phrases.length ? `<div class="extension-group"><b>常用短语</b>${phrases.map(entry => `<div class="extension-item"><strong>${escapeHtml(entry.phrase)}</strong><span>${escapeHtml(entry.meaning)}</span></div>`).join("")}</div>` : "";
+  return `<details class="word-expansion"><summary>词汇扩展 · ${count} 项</summary><div class="extension-body">${derivativeHtml}${phraseHtml}<p class="extension-disclaimer">扩展内容用于理解，不会自动同步到墨墨。</p></div></details>`;
+}
+
 function renderWords() {
   $("empty").classList.add("hidden");
   $("results").classList.remove("hidden");
-  $("word-list").innerHTML = words.map((item, index) => `<label class="word-entry"><input type="checkbox" data-index="${index}" ${item.selected ? "checked" : ""}><div><div class="word-line"><strong>${escapeHtml(item.word)}</strong><span class="lemma">${escapeHtml(item.lemma)}</span></div><div class="meaning">${escapeHtml(item.meaning || "未生成释义")}</div><p class="sentence">${escapeHtml(item.sentence)}</p><div class="chips">${item.mnemonic ? `<span class="chip">助记：${escapeHtml(item.mnemonic)}</span>` : ""}${item.reason ? `<span class="chip reason">${escapeHtml(item.reason)}</span>` : ""}</div></div></label>`).join("");
-  $("word-list").querySelectorAll("input").forEach(input => input.addEventListener("change", event => {
+  $("word-list").innerHTML = words.map((item, index) => `<article class="word-entry"><input type="checkbox" aria-label="选择 ${escapeHtml(item.lemma)}" data-index="${index}" ${item.selected ? "checked" : ""}><div><div class="word-line"><strong>${escapeHtml(item.word)}</strong><span class="lemma">${escapeHtml(item.lemma)}</span></div><div class="meaning">${escapeHtml(item.meaning || "未生成释义")}</div><p class="sentence">${escapeHtml(item.sentence)}</p><div class="chips">${item.mnemonic ? `<span class="chip">助记：${escapeHtml(item.mnemonic)}</span>` : ""}${item.reason ? `<span class="chip reason">${escapeHtml(item.reason)}</span>` : ""}</div>${renderExtensions(item)}</div></article>`).join("");
+  $("word-list").querySelectorAll("input[type=checkbox]").forEach(input => input.addEventListener("change", event => {
     words[Number(event.target.dataset.index)].selected = event.target.checked;
     updateCount();
   }));
@@ -333,8 +344,8 @@ function loadDemo() {
   $("paste-text").value = article;
   setSourceText(article);
   words = [
-    { word: "robust", lemma: "robust", meaning: "稳健的；对噪声不敏感的", sentence: "The model learns robust temporal representations from noisy signals.", mnemonic: "面对扰动仍保持稳定", reason: "论文高频核心形容词", selected: true },
-    { word: "temporal", lemma: "temporal", meaning: "时间的；时序的", sentence: "The model learns robust temporal representations from noisy signals.", mnemonic: "与 time 时间相关", reason: "理解时序模型必备", selected: true },
+    { word: "robust", lemma: "robust", meaning: "稳健的；对噪声不敏感的", sentence: "The model learns robust temporal representations from noisy signals.", mnemonic: "面对扰动仍保持稳定", reason: "论文高频核心形容词", derivatives: [{ word: "robustness", meaning: "稳健性" }], phrases: [{ phrase: "robust to noise", meaning: "对噪声具有稳健性" }], selected: true },
+    { word: "temporal", lemma: "temporal", meaning: "时间的；时序的", sentence: "The model learns robust temporal representations from noisy signals.", mnemonic: "与 time 时间相关", reason: "理解时序模型必备", derivatives: [{ word: "temporally", meaning: "在时间上" }], phrases: [{ phrase: "temporal pattern", meaning: "时间模式" }], selected: true },
     { word: "representations", lemma: "representation", meaning: "表征；模型学习到的特征表示", sentence: "The model learns robust temporal representations from noisy signals.", mnemonic: "把原始数据重新表示", reason: "机器学习核心术语", selected: true },
     { word: "generalization", lemma: "generalization", meaning: "泛化；适应未见数据的能力", sentence: "Contextual embeddings improve generalization across recording sessions, while regularization reduces overfitting.", mnemonic: "从训练样本推广到新样本", reason: "评价模型能力的关键概念", selected: true }
   ];
@@ -374,6 +385,11 @@ document.addEventListener("keydown", event => {
   }
 });
 $("ai-mode").addEventListener("change", updateConnectionUI);
+$("level").addEventListener("change", () => {
+  const custom = $("level").value === "custom";
+  $("custom-level-field").classList.toggle("hidden", !custom);
+  if (custom) setTimeout(() => $("custom-level").focus(), 0);
+});
 $("upload-tab").addEventListener("click", () => showMode("upload"));
 $("paste-tab").addEventListener("click", () => showMode("paste"));
 $("paste-text").addEventListener("input", () => setSourceText($("paste-text").value));
@@ -407,14 +423,16 @@ $("extract-file").addEventListener("click", async () => {
 
 $("analyze").addEventListener("click", async () => {
   const mode = $("ai-mode").value;
+  const level = $("level").value === "custom" ? $("custom-level").value.trim() : $("level").value;
   const config = mode === "own" ? ownAiConfig() : null;
+  if (!level) return toast("请描述你的英语水平或学习目标。", true);
   if (mode === "free" && freeRemaining <= 0) return toast("免费体验已用完，请连接你自己的 AI API。", true);
   if (mode === "own" && !config) { toast("请先连接并测试你自己的 AI API。", true); setTimeout(() => { location.href = "/connections/"; }, 900); return; }
   const button = $("analyze");
   setBusy(button, true, "AI 正在阅读这份材料…");
   setResultStatus("loading", "AI 正在筛选生词", "正在结合语境、学习目标和词汇价值生成候选结果。");
   try {
-    const data = await post("/api/analyze", { mode, ...(config || {}), article: $("source-text").value, level: $("level").value, max_words: Number($("max-words").value) });
+    const data = await post("/api/analyze", { mode, ...(config || {}), article: $("source-text").value, level, expansion: $("expansion").value, max_words: Number($("max-words").value) });
     words = data.words;
     if (mode === "free") freeRemaining = Number(data.remaining ?? Math.max(0, freeRemaining - 1));
     updateConnectionUI();

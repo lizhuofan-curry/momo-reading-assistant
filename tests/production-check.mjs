@@ -18,6 +18,7 @@ await page.goto(baseUrl, { waitUntil: "networkidle" });
 await page.getByRole("button", { name: "粘贴文本" }).click();
 await page.locator("#paste-text").fill("Modern transformer architectures use self-attention to model contextual dependencies across long sequences. The encoder produces contextualized representations, while optimization techniques such as regularization and gradient clipping improve convergence and generalization. Researchers evaluate robustness, interpretability, scalability, and computational efficiency when deploying these models in practical systems.");
 await page.locator("#max-words").selectOption("10");
+await page.locator("#expansion").selectOption("full");
 const [analysisResponse] = await Promise.all([
   page.waitForResponse(response => response.url().endsWith("/api/analyze"), { timeout: 65000 }),
   page.getByRole("button", { name: "从这份材料中提取生词" }).click()
@@ -31,6 +32,7 @@ await page.locator(".word-entry").first().waitFor({ state: "visible", timeout: 1
 const count = await page.locator(".word-entry").count();
 if (!await page.locator("#result-status.success").isVisible()) throw new Error("生产环境未显示分析成功状态");
 if (count < 1) throw new Error("生产环境未生成生词");
+if (await page.locator(".word-expansion").count() < 1) throw new Error("生产环境未生成派生词或常用短语");
 await page.screenshot({ path: fileURLToPath(new URL("production-result.png", output)), fullPage: true });
 await browser.close();
 if (browserErrors.length) throw new Error(`浏览器错误：${browserErrors.join(" | ")}`);
