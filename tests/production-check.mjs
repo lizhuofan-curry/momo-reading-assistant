@@ -29,6 +29,7 @@ if (!analysisResponse.ok()) {
 }
 await page.locator(".word-entry").first().waitFor({ state: "visible", timeout: 10000 });
 const count = await page.locator(".word-entry").count();
+if (!await page.locator("#result-status.success").isVisible()) throw new Error("生产环境未显示分析成功状态");
 if (count < 1) throw new Error("生产环境未生成生词");
 await page.screenshot({ path: fileURLToPath(new URL("production-result.png", output)), fullPage: true });
 await browser.close();

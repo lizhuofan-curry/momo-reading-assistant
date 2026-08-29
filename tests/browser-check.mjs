@@ -19,8 +19,15 @@ await page.goto(baseUrl, { waitUntil: "networkidle" });
 if (!(await page.locator("body").innerText()).trim()) throw new Error("页面为空白");
 if (!await page.getByRole("heading", { name: /从一份材料/ }).isVisible()) throw new Error("公开首页未显示");
 if (!await page.locator("#quota-badge").isVisible()) throw new Error("免费次数未显示");
+await page.locator("#quota-badge").click();
+if (!await page.locator("#quota-panel").isVisible()) throw new Error("免费规则说明未展开");
+if (!await page.locator("#quota-panel").getByText(/成功生成生词才扣除/).isVisible()) throw new Error("免费规则不完整");
+await page.keyboard.press("Escape");
 await page.getByRole("button", { name: "查看结果示例" }).click();
 if (await page.locator(".word-entry").count() < 3) throw new Error("免登录示例未渲染");
+if (!await page.locator("#result-status.success").isVisible()) throw new Error("结果成功状态未显示");
+await page.locator("#token-help").click();
+if (!await page.locator("#token-explainer").getByText(/只分析和审核生词不需要 Token/).isVisible()) throw new Error("Token 说明未展开");
 for (const path of ["/guide/", "/privacy/", "/help/", "/connections/"]) {
   const child = await context.newPage();
   child.on("pageerror", error => pageErrors.push(`${path}: ${error.message}`));
@@ -28,12 +35,22 @@ for (const path of ["/guide/", "/privacy/", "/help/", "/connections/"]) {
   if (!(await child.locator("main").innerText()).trim()) throw new Error(`${path} 页面为空`);
   await child.close();
 }
+const failurePage = await context.newPage();
+await failurePage.goto(baseUrl, { waitUntil: "networkidle" });
+await failurePage.getByRole("button", { name: "粘贴文本" }).click();
+await failurePage.locator("#paste-text").fill("Too short.");
+await failurePage.getByRole("button", { name: "从这份材料中提取生词" }).click();
+await failurePage.locator("#result-status.error").waitFor({ state: "visible" });
+if (!await failurePage.getByText("本次分析没有完成", { exact: true }).isVisible()) throw new Error("分析失败状态未显示");
+await failurePage.close();
 await page.screenshot({ path: fileURLToPath(new URL("online-home.png", output)), fullPage: true });
 
 const mobile = await context.newPage();
 await mobile.setViewportSize({ width: 390, height: 844 });
 await mobile.goto(baseUrl, { waitUntil: "networkidle" });
 if (!await mobile.getByRole("heading", { name: /从一份材料/ }).isVisible()) throw new Error("移动端首页未显示");
+await mobile.locator("#quota-badge").click();
+if (!await mobile.locator("#quota-panel").isVisible()) throw new Error("移动端免费规则未显示");
 await mobile.screenshot({ path: fileURLToPath(new URL("online-mobile.png", output)), fullPage: true });
 await browser.close();
 if (consoleErrors.length || pageErrors.length) throw new Error(`浏览器错误：${[...consoleErrors, ...pageErrors].join(" | ")}`);

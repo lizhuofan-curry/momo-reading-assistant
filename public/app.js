@@ -18,6 +18,16 @@ function setBusy(button, busy, label) {
   button.textContent = busy ? label : button.dataset.label;
 }
 
+function setResultStatus(kind, title, detail) {
+  const element = $("result-status");
+  const marks = { loading: "···", success: "✓", error: "!" };
+  element.className = `result-status ${kind}`;
+  $("state-mark").textContent = marks[kind] || "·";
+  $("state-title").textContent = title;
+  $("state-detail").textContent = detail;
+  $("state-skeleton").classList.toggle("hidden", kind !== "loading");
+}
+
 async function post(path, payload = {}) {
   const response = await fetch(path, {
     method: "POST",
@@ -185,12 +195,37 @@ function loadDemo() {
   ];
   $("title").value = "示例词本（不会自动同步）";
   renderWords();
+  setResultStatus("success", "结果示例已载入", "这是静态示例，不消耗免费次数，也不会自动同步。");
   $("workspace").scrollIntoView({ behavior: "smooth", block: "start" });
   toast("已载入结果示例；同步时需要你自己的墨墨 Token");
 }
 
 $("hero-start").addEventListener("click", () => $("workspace").scrollIntoView({ behavior: "smooth", block: "start" }));
 $("try-demo").addEventListener("click", loadDemo);
+$("quota-badge").addEventListener("click", () => {
+  const expanded = $("quota-badge").getAttribute("aria-expanded") === "true";
+  $("quota-badge").setAttribute("aria-expanded", String(!expanded));
+  $("quota-panel").classList.toggle("hidden", expanded);
+});
+$("token-help").addEventListener("click", () => {
+  const expanded = $("token-help").getAttribute("aria-expanded") === "true";
+  $("token-help").setAttribute("aria-expanded", String(!expanded));
+  $("token-explainer").classList.toggle("hidden", expanded);
+});
+document.addEventListener("click", event => {
+  if (!event.target.closest(".top-actions")) {
+    $("quota-badge").setAttribute("aria-expanded", "false");
+    $("quota-panel").classList.add("hidden");
+  }
+});
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape") {
+    $("quota-badge").setAttribute("aria-expanded", "false");
+    $("quota-panel").classList.add("hidden");
+    $("token-help").setAttribute("aria-expanded", "false");
+    $("token-explainer").classList.add("hidden");
+  }
+});
 $("ai-mode").addEventListener("change", updateConnectionUI);
 $("upload-tab").addEventListener("click", () => showMode("upload"));
 $("paste-tab").addEventListener("click", () => showMode("paste"));
@@ -206,15 +241,21 @@ $("extract-file").addEventListener("click", async () => {
   if (!selectedFile) return toast("请先选择文件", true);
   const button = $("extract-file");
   setBusy(button, true, "正在本地读取…");
+  $("file-result").textContent = "正在浏览器本地解析文件，不会上传原文件…";
+  $("file-result").className = "file-result loading";
   try {
     const data = await readFile(selectedFile);
     const truncated = data.text.length > 150000;
     setSourceText(data.text);
     $("file-result").textContent = `读取成功 · ${data.range} · ${$("source-text").value.length.toLocaleString()} 个字符${truncated ? " · 内容过长，已截取" : ""}`;
-    $("file-result").classList.remove("hidden");
+    $("file-result").className = "file-result success";
     $("title").value = selectedFile.name.replace(/\.[^.]+$/, "").slice(0, 70);
     toast("文字已在浏览器本地读取，可以开始筛词");
-  } catch (error) { toast(error.message, true); } finally { setBusy(button, false); }
+  } catch (error) {
+    $("file-result").textContent = `读取失败：${error.message}`;
+    $("file-result").className = "file-result error";
+    toast(error.message, true);
+  } finally { setBusy(button, false); }
 });
 
 $("analyze").addEventListener("click", async () => {
@@ -224,15 +265,20 @@ $("analyze").addEventListener("click", async () => {
   if (mode === "own" && !config) { toast("请先连接并测试你自己的 AI API。", true); setTimeout(() => { location.href = "/connections/"; }, 900); return; }
   const button = $("analyze");
   setBusy(button, true, "AI 正在阅读这份材料…");
+  setResultStatus("loading", "AI 正在筛选生词", "正在结合语境、学习目标和词汇价值生成候选结果。");
   try {
     const data = await post("/api/analyze", { mode, ...(config || {}), article: $("source-text").value, level: $("level").value, max_words: Number($("max-words").value) });
     words = data.words;
     if (mode === "free") freeRemaining = Number(data.remaining ?? Math.max(0, freeRemaining - 1));
     updateConnectionUI();
     renderWords();
+    setResultStatus("success", "生词已生成，可以开始审核", `共得到 ${words.length} 个候选词；取消不需要的词后再同步。`);
     if (!$("title").value) $("title").value = `阅读生词 ${new Date().toLocaleDateString("zh-CN").replaceAll("/", "-")}`;
     toast(`筛选完成，共得到 ${words.length} 个生词`);
-  } catch (error) { toast(error.message, true); } finally { setBusy(button, false); }
+  } catch (error) {
+    setResultStatus("error", "本次分析没有完成", error.message);
+    toast(error.message, true);
+  } finally { setBusy(button, false); }
 });
 
 $("toggle-all").addEventListener("click", () => { words.forEach(word => { word.selected = !allSelected; }); renderWords(); });
@@ -243,10 +289,15 @@ $("sync").addEventListener("click", async () => {
   if (!chosen.length) return toast("请至少选择一个生词", true);
   const button = $("sync");
   setBusy(button, true, "正在创建云词本…");
+  setResultStatus("loading", "正在同步至墨墨", `正在创建“${$("title").value || "未命名词本"}”，请不要关闭页面。`);
   try {
     const data = await post("/api/sync", { token, title: $("title").value, tags: [$("tag").value], words: chosen, brief: `由拾词生成，共 ${chosen.length} 个词` });
+    setResultStatus("success", "已同步到墨墨云词本", `${data.title} · ${data.count} 个词。现在可在墨墨 App 中搜索该名称。`);
     toast(`${data.title} 已创建，共 ${data.count} 个词`);
-  } catch (error) { toast(error.message, true); } finally { setBusy(button, false); }
+  } catch (error) {
+    setResultStatus("error", "同步没有完成", error.message);
+    toast(error.message, true);
+  } finally { setBusy(button, false); }
 });
 
 window.addEventListener("pageshow", updateConnectionUI);
