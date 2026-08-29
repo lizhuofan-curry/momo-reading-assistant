@@ -1,7 +1,12 @@
 const $ = id => document.getElementById(id);
 const providers = {
   deepseek: { label: "DeepSeek", mark: "DS", model: "deepseek-v4-flash", description: "国内服务 · DeepSeek 官方 API" },
-  qwen: { label: "阿里云百炼 Qwen", mark: "QW", model: "qwen-plus", description: "国内服务 · 通义千问兼容接口" },
+  doubao: { label: "火山方舟 Doubao", mark: "DB", model: "doubao-seed-2-0-lite-260215", description: "国内服务 · 字节跳动火山方舟" },
+  kimi: { label: "Kimi 开放平台", mark: "KM", model: "kimi-k2.5", description: "国内服务 · Moonshot AI 官方 API" },
+  qwen: { label: "千问开放平台 Qwen", mark: "QW", model: "qwen-plus", description: "国内服务 · 阿里云百炼兼容接口" },
+  minimax: { label: "MiniMax 开放平台", mark: "MM", model: "MiniMax-M2.7", description: "国内服务 · MiniMax 官方 API" },
+  mimo: { label: "小米 MiMo", mark: "MO", model: "mimo-v2.5-pro", description: "国内服务 · Xiaomi MiMo 官方 API" },
+  glm: { label: "智谱 GLM", mark: "GL", model: "glm-5", description: "国内服务 · 智谱开放平台" },
   siliconflow: { label: "硅基流动 SiliconFlow", mark: "SF", model: "Qwen/Qwen3-8B", description: "国内服务 · 多模型聚合平台" },
   openai: { label: "OpenAI", mark: "OA", model: "gpt-5.4-mini", description: "国际服务 · OpenAI 官方 API" },
   gemini: { label: "Google Gemini", mark: "GE", model: "gemini-3.7-flash", description: "国际服务 · Google AI Studio API" },
@@ -12,6 +17,8 @@ const providers = {
   xai: { label: "xAI", mark: "xAI", model: "grok-4.6", description: "国际服务 · Grok 官方 API" }
 };
 let modelCatalog = [];
+let discoverySequence = 0;
+let lastDiscoverySignature = "";
 
 function status(id, message, kind = "") {
   const element = $(id);
@@ -86,6 +93,47 @@ function currentModel() {
   return $("manual-model-field").classList.contains("hidden") ? $("model").value.trim() : $("manual-model").value.trim();
 }
 
+function useManualModel() {
+  closeMenu("model");
+  $("manual-model-field").classList.remove("hidden");
+  $("manual-model").value = currentModel() || providers[$("provider").value].model;
+  $("model-name").textContent = "手动填写";
+  $("model-meta").textContent = "填写模型 ID 或推理接入点 ID";
+  $("manual-model").focus();
+}
+
+async function discoverModels({ force = false } = {}) {
+  const button = $("load-models");
+  const apiKey = $("api-key").value.trim();
+  const provider = $("provider").value;
+  if (!apiKey) {
+    if (force) status("ai-status", "请先填写 API Key，再识别可用模型。", "error");
+    return;
+  }
+  const signature = `${provider}:${apiKey}`;
+  if (!force && signature === lastDiscoverySignature) return;
+  lastDiscoverySignature = signature;
+  const sequence = ++discoverySequence;
+  busy(button, true, "正在识别…");
+  status("ai-status", `检测到 API Key，正在读取 ${providers[provider].label} 的可用模型…`, "loading");
+  try {
+    const data = await post("/api/models", { provider, api_key: apiKey });
+    if (sequence !== discoverySequence) return;
+    modelCatalog = data.models;
+    renderModels();
+    const selected = modelCatalog.some(item => item.id === $("model").value) ? $("model").value : modelCatalog[0].id;
+    const meta = data.source === "preset" ? "官方候选 · 请测试账号权限" : `已识别 ${modelCatalog.length} 个文本模型`;
+    chooseModel(selected, meta);
+    status("ai-status", data.source === "preset" ? data.note : `已自动识别 ${modelCatalog.length} 个模型，请选择后测试连接。`, data.source === "preset" ? "" : "ok");
+  } catch (error) {
+    if (sequence !== discoverySequence) return;
+    useManualModel();
+    status("ai-status", `${error.message} 已切换为手填模式。`, "error");
+  } finally {
+    if (sequence === discoverySequence) busy(button, false);
+  }
+}
+
 function restore() {
   let ai = null;
   try { ai = JSON.parse(sessionStorage.getItem("momo_ai_config") || "null"); } catch { /* ignore invalid tab data */ }
@@ -105,36 +153,16 @@ $("provider-trigger").addEventListener("click", () => toggleMenu("provider"));
 $("model-trigger").addEventListener("click", () => toggleMenu("model"));
 document.querySelectorAll(".provider-option").forEach(option => option.addEventListener("click", () => chooseProvider(option.dataset.provider)));
 $("model-search").addEventListener("input", event => renderModels(event.target.value));
-$("manual-option").addEventListener("click", () => {
-  closeMenu("model");
-  $("manual-model-field").classList.remove("hidden");
-  $("manual-model").value = $("model").value;
-  $("model-name").textContent = "手动填写";
-  $("model-meta").textContent = "将使用下方输入的模型名称";
-  $("manual-model").focus();
-});
+$("manual-option").addEventListener("click", useManualModel);
+$("api-key").addEventListener("change", () => discoverModels());
+$("api-key").addEventListener("paste", () => setTimeout(() => discoverModels(), 0));
 document.addEventListener("click", event => {
   if (!event.target.closest("#provider-select")) closeMenu("provider");
   if (!event.target.closest("#model-select")) closeMenu("model");
 });
 document.addEventListener("keydown", event => { if (event.key === "Escape") { closeMenu("provider"); closeMenu("model"); } });
 
-$("load-models").addEventListener("click", async () => {
-  const button = $("load-models");
-  const apiKey = $("api-key").value.trim();
-  if (!apiKey) return status("ai-status", "请先填写 API Key，再识别可用模型。", "error");
-  busy(button, true, "正在识别…");
-  status("ai-status", `正在读取 ${providers[$("provider").value].label} 的可用模型…`, "loading");
-  try {
-    const data = await post("/api/models", { provider: $("provider").value, api_key: apiKey });
-    modelCatalog = data.models;
-    renderModels();
-    chooseModel(modelCatalog.some(item => item.id === $("model").value) ? $("model").value : modelCatalog[0].id, `已识别 ${modelCatalog.length} 个文本模型`);
-    status("ai-status", `已识别 ${modelCatalog.length} 个模型，请从下拉栏选择后测试连接。`, "ok");
-  } catch (error) {
-    status("ai-status", `${error.message} 可改用“手动填写模型名称”。`, "error");
-  } finally { busy(button, false); }
-});
+$("load-models").addEventListener("click", () => discoverModels({ force: true }));
 
 $("test-ai").addEventListener("click", async () => {
   const button = $("test-ai");
@@ -164,6 +192,8 @@ $("test-memo").addEventListener("click", async () => {
 
 $("clear-ai").addEventListener("click", () => {
   sessionStorage.removeItem("momo_ai_config");
+  lastDiscoverySignature = "";
+  discoverySequence += 1;
   chooseProvider($("provider").value, { keepKey: false });
   status("ai-status", "已清除当前标签页的 AI 连接");
 });

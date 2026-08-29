@@ -1,6 +1,11 @@
 export const PROVIDERS = {
   deepseek: { label: "DeepSeek", baseUrl: "https://api.deepseek.com", defaultModel: "deepseek-v4-flash", group: "国内服务" },
-  qwen: { label: "阿里云百炼 Qwen", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", modelsUrl: "https://dashscope.aliyuncs.com/api/v1/models?capabilities=TG&page_size=100", defaultModel: "qwen-plus", group: "国内服务" },
+  doubao: { label: "火山方舟 Doubao", baseUrl: "https://ark.cn-beijing.volces.com/api/v3", defaultModel: "doubao-seed-2-0-lite-260215", group: "国内服务", presetModels: ["doubao-seed-2-0-lite-260215", "doubao-seed-2-0-pro-260215"] },
+  kimi: { label: "Kimi 开放平台", baseUrl: "https://api.moonshot.cn/v1", defaultModel: "kimi-k2.5", group: "国内服务" },
+  qwen: { label: "千问开放平台 Qwen", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", modelsUrl: "https://dashscope.aliyuncs.com/api/v1/models?capabilities=TG&page_size=100", defaultModel: "qwen-plus", group: "国内服务" },
+  minimax: { label: "MiniMax 开放平台", baseUrl: "https://api.minimaxi.com/v1", defaultModel: "MiniMax-M2.7", group: "国内服务" },
+  mimo: { label: "小米 MiMo", baseUrl: "https://api.xiaomimimo.com/v1", defaultModel: "mimo-v2.5-pro", group: "国内服务" },
+  glm: { label: "智谱 GLM", baseUrl: "https://open.bigmodel.cn/api/paas/v4", defaultModel: "glm-5", group: "国内服务" },
   siliconflow: { label: "硅基流动 SiliconFlow", baseUrl: "https://api.siliconflow.cn/v1", modelsUrl: "https://api.siliconflow.cn/v1/models?type=text", defaultModel: "Qwen/Qwen3-8B", group: "国内服务", jsonMode: false },
   openai: { label: "OpenAI", baseUrl: "https://api.openai.com/v1", defaultModel: "gpt-5.4-mini", group: "国际服务" },
   gemini: { label: "Google Gemini", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", defaultModel: "gemini-3.7-flash", group: "国际服务" },
@@ -38,6 +43,13 @@ function isTextModel(item, id) {
 export async function listProviderModels(data) {
   const config = providerConfig({ ...data, model: "temporary-model" }, false);
   const preset = PROVIDERS[config.provider];
+  if (preset.presetModels) {
+    return {
+      models: preset.presetModels.map(id => ({ id, name: id, type: "text" })),
+      source: "preset",
+      note: "该服务商未通过推理 API 返回账号模型列表，下面是官方候选模型；也可以手填模型 ID 或推理接入点 ID。"
+    };
+  }
   const remote = await fetch(preset.modelsUrl || `${config.baseUrl}/models`, {
     headers: providerHeaders(config),
     signal: AbortSignal.timeout(30000)
@@ -50,7 +62,7 @@ export async function listProviderModels(data) {
   }).filter(item => item.id && /^[A-Za-z0-9._:/-]{2,160}$/.test(item.id) && isTextModel(item, item.id));
   const unique = [...new Map(models.map(item => [item.id, item])).values()].sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
   if (!unique.length) throw new Error(`${config.label} 已连接，但没有返回可用于文本对话的模型。你仍可手动填写模型名称。`);
-  return unique.slice(0, 300);
+  return { models: unique.slice(0, 300), source: "live", note: "" };
 }
 
 export function providerConfig(data, free = false) {

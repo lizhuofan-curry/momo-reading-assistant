@@ -10,11 +10,11 @@
 <body>
   <header class="topbar"><nav class="nav"><a class="brand" href="/"><span class="brand-mark">拾</span><strong>拾词</strong></a><div class="nav-links"><a href="/guide/">使用教程</a><a href="/privacy/">隐私说明</a><a href="/help/">常见问题</a><a aria-current="page" href="/connections/">连接设置</a><a class="nav-cta" href="/">返回工作台</a></div></nav></header>
   <main class="page">
-    <section class="hero"><div class="eyebrow">Connections</div><h1>连接你自己的服务。</h1><p>选择服务商，输入 API Key 后识别可用模型。测试成功的连接只保存到当前标签页。</p></section>
+    <section class="hero"><div class="eyebrow">Connections</div><h1>连接你自己的服务。</h1><p>选择服务商，粘贴 API Key 后自动识别可用模型。测试成功的连接只保存到当前标签页。</p></section>
     <div class="provider-grid connection-grid">
       <section class="sheet api-sheet">
         <span class="badge">AI API</span>
-        <div class="section-heading"><div><h2>连接模型服务商</h2><p>支持 10 家官方 OpenAI 兼容接口。</p></div><span class="step-count">01</span></div>
+        <div class="section-heading"><div><h2>连接模型服务商</h2><p>支持 15 家官方兼容接口，国内平台优先展示。</p></div><span class="step-count">01</span></div>
         <input id="provider" type="hidden" value="deepseek">
         <div class="field">
           <label id="provider-select-label">服务商</label>
@@ -25,7 +25,12 @@
             <div class="smart-menu provider-menu hidden" id="provider-menu" role="listbox" aria-labelledby="provider-select-label">
               <div class="menu-group">国内服务</div>
               <button class="provider-option selected" type="button" role="option" aria-selected="true" data-provider="deepseek"><span class="provider-mark">DS</span><span><strong>DeepSeek</strong><small>DeepSeek 官方 API</small></span><i>✓</i></button>
-              <button class="provider-option" type="button" role="option" aria-selected="false" data-provider="qwen"><span class="provider-mark">QW</span><span><strong>阿里云百炼 Qwen</strong><small>通义千问兼容接口</small></span><i>✓</i></button>
+              <button class="provider-option" type="button" role="option" aria-selected="false" data-provider="doubao"><span class="provider-mark">DB</span><span><strong>火山方舟 Doubao</strong><small>字节跳动火山方舟</small></span><i>✓</i></button>
+              <button class="provider-option" type="button" role="option" aria-selected="false" data-provider="kimi"><span class="provider-mark">KM</span><span><strong>Kimi 开放平台</strong><small>Moonshot AI 官方 API</small></span><i>✓</i></button>
+              <button class="provider-option" type="button" role="option" aria-selected="false" data-provider="qwen"><span class="provider-mark">QW</span><span><strong>千问开放平台 Qwen</strong><small>阿里云百炼兼容接口</small></span><i>✓</i></button>
+              <button class="provider-option" type="button" role="option" aria-selected="false" data-provider="minimax"><span class="provider-mark">MM</span><span><strong>MiniMax 开放平台</strong><small>MiniMax 官方 API</small></span><i>✓</i></button>
+              <button class="provider-option" type="button" role="option" aria-selected="false" data-provider="mimo"><span class="provider-mark">MO</span><span><strong>小米 MiMo</strong><small>Xiaomi MiMo 官方 API</small></span><i>✓</i></button>
+              <button class="provider-option" type="button" role="option" aria-selected="false" data-provider="glm"><span class="provider-mark">GL</span><span><strong>智谱 GLM</strong><small>智谱开放平台</small></span><i>✓</i></button>
               <button class="provider-option" type="button" role="option" aria-selected="false" data-provider="siliconflow"><span class="provider-mark">SF</span><span><strong>硅基流动 SiliconFlow</strong><small>多模型聚合平台</small></span><i>✓</i></button>
               <div class="menu-group">国际服务</div>
               <button class="provider-option" type="button" role="option" aria-selected="false" data-provider="openai"><span class="provider-mark">OA</span><span><strong>OpenAI</strong><small>OpenAI 官方 API</small></span><i>✓</i></button>
@@ -39,7 +44,7 @@
           </div>
         </div>
         <div class="field"><label for="api-key">API Key</label><input id="api-key" type="password" autocomplete="off" placeholder="粘贴该服务商的 API Key"><small>密钥只发送到所选服务商，并保存在当前标签页。</small></div>
-        <div class="model-discovery"><div><strong>识别可用模型</strong><span>使用上方 Key 读取账号当前可用的文本模型</span></div><button class="button secondary compact" id="load-models" type="button">开始识别</button></div>
+        <div class="model-discovery"><div><strong>自动识别模型</strong><span>粘贴 Key 后自动读取；未识别到时可手动填写</span></div><button class="button secondary compact" id="load-models" type="button">重新识别</button></div>
         <input id="model" type="hidden" value="deepseek-v4-flash">
         <div class="field">
           <label id="model-select-label">模型</label>
@@ -48,7 +53,7 @@
             <div class="smart-menu model-menu hidden" id="model-menu" role="listbox" aria-labelledby="model-select-label"><div class="model-search"><input id="model-search" type="search" placeholder="搜索模型名称" autocomplete="off"></div><div id="model-options" class="model-options"></div><button class="manual-option" id="manual-option" type="button">找不到？手动填写模型名称</button></div>
           </div>
         </div>
-        <div class="field hidden" id="manual-model-field"><label for="manual-model">手动模型名称</label><input id="manual-model" autocomplete="off" placeholder="例如 provider/model-name"><small>仅在服务商未开放模型列表时使用。</small></div>
+        <div class="field hidden" id="manual-model-field"><label for="manual-model">手动模型名称</label><input id="manual-model" autocomplete="off" placeholder="例如 model-name 或 endpoint-id"><small>可填写官方模型 ID；火山方舟也可填写推理接入点 ID。</small></div>
         <div class="actions"><button class="button" id="test-ai">测试 AI 连接</button><button class="button secondary" id="clear-ai">清除</button></div>
         <p class="status" id="ai-status" aria-live="polite"></p>
       </section>
