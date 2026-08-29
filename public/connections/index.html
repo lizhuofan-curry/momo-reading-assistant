@@ -43,7 +43,7 @@
             </div>
           </div>
         </div>
-        <div class="field"><label for="api-key">API Key</label><input id="api-key" type="password" autocomplete="off" placeholder="粘贴该服务商的 API Key"><small>密钥只发送到所选服务商，并保存在当前标签页。</small></div>
+        <div class="field"><label for="api-key">API Key</label><input id="api-key" type="password" autocomplete="off" placeholder="粘贴该服务商的 API Key"><small>密钥只发送到所选服务商，并保存在当前标签页。</small><a class="provider-key-link" id="api-key-link" href="https://platform.deepseek.com/api_keys" target="_blank" rel="noreferrer"><span id="api-key-link-label">前往 DeepSeek 获取 API Key</span><span aria-hidden="true">↗</span></a></div>
         <div class="model-discovery"><div><strong>自动识别模型</strong><span>粘贴 Key 后自动读取；未识别到时可手动填写</span></div><button class="button secondary compact" id="load-models" type="button">重新识别</button></div>
         <input id="model" type="hidden" value="deepseek-v4-flash">
         <div class="field">

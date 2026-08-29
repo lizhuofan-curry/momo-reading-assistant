@@ -44,6 +44,8 @@ if (await connectionPage.locator(".provider-option").count() !== 15) throw new E
 await connectionPage.screenshot({ path: fileURLToPath(new URL("connections-providers.png", output)), fullPage: true });
 await connectionPage.locator('[data-provider="gemini"]').click();
 if (await connectionPage.locator("#provider-name").textContent() !== "Google Gemini") throw new Error("自定义服务商下拉选择失败");
+if (await connectionPage.locator("#api-key-link").getAttribute("href") !== "https://aistudio.google.com/app/apikey") throw new Error("API Key 官方入口未随服务商切换");
+if (await connectionPage.locator("#api-key-link").getAttribute("target") !== "_blank") throw new Error("API Key 官方入口没有在新标签页打开");
 await connectionPage.locator("#api-key").fill("test-api-key");
 await connectionPage.locator("#api-key").dispatchEvent("change");
 await connectionPage.getByText(/已自动识别 2 个模型/).waitFor({ state: "visible" });

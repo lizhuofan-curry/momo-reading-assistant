@@ -1,20 +1,20 @@
 const $ = id => document.getElementById(id);
 const providers = {
-  deepseek: { label: "DeepSeek", mark: "DS", model: "deepseek-v4-flash", description: "国内服务 · DeepSeek 官方 API" },
-  doubao: { label: "火山方舟 Doubao", mark: "DB", model: "doubao-seed-2-0-lite-260215", description: "国内服务 · 字节跳动火山方舟" },
-  kimi: { label: "Kimi 开放平台", mark: "KM", model: "kimi-k2.5", description: "国内服务 · Moonshot AI 官方 API" },
-  qwen: { label: "千问开放平台 Qwen", mark: "QW", model: "qwen-plus", description: "国内服务 · 阿里云百炼兼容接口" },
-  minimax: { label: "MiniMax 开放平台", mark: "MM", model: "MiniMax-M2.7", description: "国内服务 · MiniMax 官方 API" },
-  mimo: { label: "小米 MiMo", mark: "MO", model: "mimo-v2.5-pro", description: "国内服务 · Xiaomi MiMo 官方 API" },
-  glm: { label: "智谱 GLM", mark: "GL", model: "glm-5", description: "国内服务 · 智谱开放平台" },
-  siliconflow: { label: "硅基流动 SiliconFlow", mark: "SF", model: "Qwen/Qwen3-8B", description: "国内服务 · 多模型聚合平台" },
-  openai: { label: "OpenAI", mark: "OA", model: "gpt-5.4-mini", description: "国际服务 · OpenAI 官方 API" },
-  gemini: { label: "Google Gemini", mark: "GE", model: "gemini-3.7-flash", description: "国际服务 · Google AI Studio API" },
-  openrouter: { label: "OpenRouter", mark: "OR", model: "openai/gpt-4.1-mini", description: "国际服务 · 多模型统一入口" },
-  groq: { label: "Groq", mark: "GQ", model: "openai/gpt-oss-20b", description: "国际服务 · 高速推理平台" },
-  together: { label: "Together AI", mark: "TA", model: "openai/gpt-oss-120b", description: "国际服务 · 开放模型平台" },
-  mistral: { label: "Mistral AI", mark: "MI", model: "mistral-small-latest", description: "国际服务 · Mistral 官方 API" },
-  xai: { label: "xAI", mark: "xAI", model: "grok-4.6", description: "国际服务 · Grok 官方 API" }
+  deepseek: { label: "DeepSeek", mark: "DS", model: "deepseek-v4-flash", description: "国内服务 · DeepSeek 官方 API", keyUrl: "https://platform.deepseek.com/api_keys" },
+  doubao: { label: "火山方舟 Doubao", mark: "DB", model: "doubao-seed-2-0-lite-260215", description: "国内服务 · 字节跳动火山方舟", keyUrl: "https://console.volcengine.com/ark/apiKey" },
+  kimi: { label: "Kimi 开放平台", mark: "KM", model: "kimi-k2.5", description: "国内服务 · Moonshot AI 官方 API", keyUrl: "https://platform.kimi.com/console/api-keys" },
+  qwen: { label: "千问开放平台 Qwen", mark: "QW", model: "qwen-plus", description: "国内服务 · 阿里云百炼兼容接口", keyUrl: "https://bailian.console.aliyun.com/?tab=model#/api-key" },
+  minimax: { label: "MiniMax 开放平台", mark: "MM", model: "MiniMax-M2.7", description: "国内服务 · MiniMax 官方 API", keyUrl: "https://platform.minimaxi.com/user-center/basic-information/interface-key" },
+  mimo: { label: "小米 MiMo", mark: "MO", model: "mimo-v2.5-pro", description: "国内服务 · Xiaomi MiMo 官方 API", keyUrl: "https://mimo.mi.com/console/api-keys" },
+  glm: { label: "智谱 GLM", mark: "GL", model: "glm-5", description: "国内服务 · 智谱开放平台", keyUrl: "https://bigmodel.cn/usercenter/proj-mgmt/apikeys" },
+  siliconflow: { label: "硅基流动 SiliconFlow", mark: "SF", model: "Qwen/Qwen3-8B", description: "国内服务 · 多模型聚合平台", keyUrl: "https://cloud.siliconflow.cn/account/ak" },
+  openai: { label: "OpenAI", mark: "OA", model: "gpt-5.4-mini", description: "国际服务 · OpenAI 官方 API", keyUrl: "https://platform.openai.com/api-keys" },
+  gemini: { label: "Google Gemini", mark: "GE", model: "gemini-3.7-flash", description: "国际服务 · Google AI Studio API", keyUrl: "https://aistudio.google.com/app/apikey" },
+  openrouter: { label: "OpenRouter", mark: "OR", model: "openai/gpt-4.1-mini", description: "国际服务 · 多模型统一入口", keyUrl: "https://openrouter.ai/settings/keys" },
+  groq: { label: "Groq", mark: "GQ", model: "openai/gpt-oss-20b", description: "国际服务 · 高速推理平台", keyUrl: "https://console.groq.com/keys" },
+  together: { label: "Together AI", mark: "TA", model: "openai/gpt-oss-120b", description: "国际服务 · 开放模型平台", keyUrl: "https://api.together.ai/settings/api-keys" },
+  mistral: { label: "Mistral AI", mark: "MI", model: "mistral-small-latest", description: "国际服务 · Mistral 官方 API", keyUrl: "https://console.mistral.ai/api-keys" },
+  xai: { label: "xAI", mark: "xAI", model: "grok-4.6", description: "国际服务 · Grok 官方 API", keyUrl: "https://console.x.ai/" }
 };
 let modelCatalog = [];
 let discoverySequence = 0;
@@ -76,6 +76,9 @@ function chooseProvider(id, { keepKey = false, model } = {}) {
   $("provider-mark").textContent = preset.mark;
   $("provider-name").textContent = preset.label;
   $("provider-description").textContent = preset.description;
+  $("api-key-link").href = preset.keyUrl;
+  $("api-key-link-label").textContent = `前往 ${preset.label} 获取 API Key`;
+  $("api-key-link").setAttribute("aria-label", `在新标签页打开 ${preset.label} 官方 API Key 页面`);
   document.querySelectorAll(".provider-option").forEach(option => {
     const selected = option.dataset.provider === $("provider").value;
     option.classList.toggle("selected", selected);
