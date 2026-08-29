@@ -10,7 +10,8 @@
 <body>
   <header class="topbar"><nav class="nav"><a class="brand" href="/"><span class="brand-mark">拾</span><strong>拾词</strong></a><div class="nav-links"><a href="/guide/">使用教程</a><a href="/privacy/">隐私说明</a><a href="/help/">常见问题</a><a aria-current="page" href="/connections/">连接设置</a><a class="nav-cta" href="/">返回工作台</a></div></nav></header>
   <main class="page">
-    <section class="hero"><div class="eyebrow">Connections</div><h1>连接你自己的服务。</h1><p>选择服务商，粘贴 API Key 后自动识别可用模型。测试成功的连接只保存到当前标签页。</p></section>
+    <section class="hero"><div class="eyebrow">Connections</div><h1>连接你自己的服务。</h1><p>选择服务商，粘贴 API Key 后自动识别可用模型。测试成功后，下次打开网站会自动恢复。</p></section>
+    <label class="remember-setting" for="remember-connections"><input id="remember-connections" type="checkbox" checked><span><strong>在此浏览器记住连接</strong><small>保存服务商、API Key、当前模型和墨墨 Token。公共设备上请关闭。</small></span></label>
     <div class="provider-grid connection-grid">
       <section class="sheet api-sheet">
         <span class="badge">AI API</span>
@@ -43,7 +44,7 @@
             </div>
           </div>
         </div>
-        <div class="field"><label for="api-key">API Key</label><input id="api-key" type="password" autocomplete="off" placeholder="粘贴该服务商的 API Key"><small>密钥只发送到所选服务商，并保存在当前标签页。</small><a class="provider-key-link" id="api-key-link" href="https://platform.deepseek.com/api_keys" target="_blank" rel="noreferrer"><span id="api-key-link-label">前往 DeepSeek 获取 API Key</span><span aria-hidden="true">↗</span></a></div>
+        <div class="field"><label for="api-key">API Key</label><input id="api-key" type="password" autocomplete="off" placeholder="粘贴该服务商的 API Key"><small>密钥只在请求时发送给所选服务商；本站不会写入服务器数据库。</small><a class="provider-key-link" id="api-key-link" href="https://platform.deepseek.com/api_keys" target="_blank" rel="noreferrer"><span id="api-key-link-label">前往 DeepSeek 获取 API Key</span><span aria-hidden="true">↗</span></a></div>
         <div class="model-discovery"><div><strong>自动识别模型</strong><span>粘贴 Key 后自动读取；未识别到时可手动填写</span></div><button class="button secondary compact" id="load-models" type="button">重新识别</button></div>
         <input id="model" type="hidden" value="deepseek-v4-flash">
         <div class="field">
@@ -57,11 +58,11 @@
         <div class="actions"><button class="button" id="test-ai">测试 AI 连接</button><button class="button secondary" id="clear-ai">清除</button></div>
         <p class="status" id="ai-status" aria-live="polite"></p>
       </section>
-      <section class="sheet memo-sheet"><span class="badge">WORDBOOK</span><div class="section-heading"><div><h2>连接词本同步</h2><p>分析不需要 Token，同步时才需要。</p></div><span class="step-count">02</span></div><div class="note warning">本站是非官方工具，因此不展示墨墨官方 Logo。同步时必须使用你自己的 Access Token。</div><div class="field"><label for="memo-token">墨墨 Access Token</label><input id="memo-token" type="password" autocomplete="off" placeholder="仅在当前标签页使用"></div><div class="actions"><button class="button" id="test-memo">测试 Token</button><button class="button secondary" id="clear-memo">清除</button></div><p class="status" id="memo-status" aria-live="polite"></p><p><a href="https://www.maimemo.com/pages/openapi/introduction?open_by=share" rel="noreferrer">前往墨墨开放平台获取 Token</a></p></section>
+      <section class="sheet memo-sheet"><span class="badge">WORDBOOK</span><div class="section-heading"><div><h2>连接词本同步</h2><p>分析不需要 Token，同步时才需要。</p></div><span class="step-count">02</span></div><div class="note warning">本站是非官方工具，因此不展示墨墨官方 Logo。同步时必须使用你自己的 Access Token。</div><div class="field"><label for="memo-token">墨墨 Access Token</label><input id="memo-token" type="password" autocomplete="off" placeholder="粘贴你自己的 Access Token"></div><div class="actions"><button class="button" id="test-memo">测试 Token</button><button class="button secondary" id="clear-memo">清除</button></div><p class="status" id="memo-status" aria-live="polite"></p><p><a href="https://www.maimemo.com/pages/openapi/introduction?open_by=share" rel="noreferrer">前往墨墨开放平台获取 Token</a></p></section>
     </div>
     <div class="actions"><a class="button" href="/">完成，返回工作台</a></div>
   </main>
-  <footer class="footer"><span>连接信息只保留在当前标签页</span><span><a href="/privacy/">查看完整隐私说明</a></span></footer>
+  <footer class="footer"><span>连接信息默认保存在此浏览器，可随时清除</span><span><a href="/privacy/">查看完整隐私说明</a></span></footer>
   <script type="module" src="/connections.js"></script>
 </body>
 </html>

@@ -39,17 +39,17 @@ async function post(path, payload = {}) {
   return data;
 }
 
-function sessionJson(key) {
-  try { return JSON.parse(sessionStorage.getItem(key) || "null"); } catch { return null; }
+function storedJson(key) {
+  try { return JSON.parse(localStorage.getItem(key) || sessionStorage.getItem(key) || "null"); } catch { return null; }
 }
 
 function ownAiConfig() {
-  const value = sessionJson("momo_ai_config");
+  const value = storedJson("momo_ai_config");
   return value && value.provider && value.api_key && value.model ? value : null;
 }
 
 function memoToken() {
-  return sessionStorage.getItem("momo_token") || "";
+  return localStorage.getItem("momo_token") || sessionStorage.getItem("momo_token") || "";
 }
 
 function updateConnectionUI() {
@@ -59,8 +59,8 @@ function updateConnectionUI() {
     ? `此浏览器还可免费分析 <strong>${freeRemaining}</strong> 次，成功一次才扣一次。`
     : ai ? `已连接 ${escapeHtml(ai.label || ai.provider)} · ${escapeHtml(ai.model)}` : `尚未连接自己的模型，<a href="/connections/">前往连接设置</a>。`;
   $("memo-status").innerHTML = token
-    ? `已在当前标签页连接你的墨墨 Token。本站是非官方工具，关闭标签页后会自动清除。`
-    : `需要先在<a href="/connections/">连接设置</a>中测试你自己的墨墨 Access Token。本站是非官方工具，不保存 Token。`;
+    ? `已在此浏览器连接你的墨墨 Token。可在连接设置中清除或改为仅当前标签页保存。`
+    : `需要先在<a href="/connections/">连接设置</a>中测试你自己的墨墨 Access Token。本站不会把 Token 写入服务器数据库。`;
   $("quota-badge").innerHTML = `<span>免费体验 ${freeRemaining}/5</span>`;
 }
 

@@ -65,6 +65,7 @@
 | ☁️ 墨墨同步 | 使用你自己的墨墨 Access Token 创建云词本 |
 | 🔌 自选 AI 来源 | 支持 15 家官方兼容服务商，粘贴 API Key 后自动识别文本模型并下拉选择 |
 | ↗ 官方密钥入口 | 选择服务商后显示对应的官方 API Key 控制台链接，并在新标签页打开 |
+| 💾 持久连接 | 默认在当前浏览器保存 API Key、墨墨 Token 和所选模型，也可切换为仅当前标签页保存 |
 | 🎟️ 免费体验 | 每个浏览器可成功分析 5 次，额度控件会解释计数规则 |
 | ◌ 操作状态 | 提供解析中、分析中、失败、完成及同步反馈 |
 | ? Token 帮助 | 只分析不需要墨墨 Token，创建云词本时才需要 |
@@ -117,8 +118,9 @@ The model learns robust temporal representations from noisy signals.
 
 - 文件文字优先在浏览器本地提取；
 - 只有你确认分析的文本才会发送给所选 AI 服务商；
-- 访问者自己的 AI API Key 和墨墨 Token 保存在当前浏览器标签页的 `sessionStorage`；
-- 关闭标签页后，访问者凭据会被清除；
+- 访问者可选择将 AI API Key、墨墨 Token 和所选模型保存在当前浏览器的 `localStorage`，重新打开网站后自动恢复；
+- 在公共设备上可以关闭“记住连接”，此时凭据仅保存在当前标签页的 `sessionStorage`；
+- “清除”按钮会同时删除该项在 `localStorage` 与 `sessionStorage` 中的数据；
 - 网站不会替你悄悄把词加入墨墨词本，必须经过人工审核；
 - 不要把 `.env.local`、API Key 或 Access Token 提交到仓库。
 

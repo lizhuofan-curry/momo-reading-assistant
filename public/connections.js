@@ -19,6 +19,40 @@ const providers = {
 let modelCatalog = [];
 let discoverySequence = 0;
 let lastDiscoverySignature = "";
+const credentialKeys = ["momo_ai_config", "momo_token"];
+const rememberKey = "momo_remember_connections";
+
+function rememberEnabled() {
+  return $("remember-connections").checked;
+}
+
+function storedValue(key) {
+  return localStorage.getItem(key) || sessionStorage.getItem(key) || "";
+}
+
+function storedJson(key) {
+  try { return JSON.parse(storedValue(key) || "null"); } catch { return null; }
+}
+
+function saveCredential(key, value) {
+  const selected = rememberEnabled() ? localStorage : sessionStorage;
+  const other = rememberEnabled() ? sessionStorage : localStorage;
+  selected.setItem(key, value);
+  other.removeItem(key);
+}
+
+function removeCredential(key) {
+  localStorage.removeItem(key);
+  sessionStorage.removeItem(key);
+}
+
+function migrateCredentials() {
+  localStorage.setItem(rememberKey, String(rememberEnabled()));
+  for (const key of credentialKeys) {
+    const value = storedValue(key);
+    if (value) saveCredential(key, value);
+  }
+}
 
 function status(id, message, kind = "") {
   const element = $(id);
@@ -51,16 +85,30 @@ function toggleMenu(name) {
   closeMenu(name === "provider" ? "model" : "provider");
   trigger.setAttribute("aria-expanded", String(opening));
   $(`${name}-menu`).classList.toggle("hidden", !opening);
-  if (opening && name === "model") setTimeout(() => $("model-search").focus(), 0);
+  if (opening && name === "model") {
+    $("model-search").value = "";
+    renderModels();
+    setTimeout(() => $("model-search").focus(), 0);
+  }
 }
 
-function chooseModel(id, meta = "已选择") {
+function persistModelSelection(model) {
+  const saved = storedJson("momo_ai_config");
+  const provider = $("provider").value;
+  const apiKey = $("api-key").value.trim();
+  if (!saved || saved.provider !== provider || saved.api_key !== apiKey || !model) return;
+  saveCredential("momo_ai_config", JSON.stringify({ ...saved, model }));
+  status("ai-status", `已切换为 ${model}，建议测试连接后再开始分析。`, "ok");
+}
+
+function chooseModel(id, meta = "已选择", { persist = true } = {}) {
   $("model").value = id;
   $("model-name").textContent = id;
   $("model-meta").textContent = meta;
   $("manual-model-field").classList.add("hidden");
   $("model-options").querySelectorAll(".model-option").forEach(option => option.classList.toggle("selected", option.dataset.model === id));
   closeMenu("model");
+  if (persist) persistModelSelection(id);
 }
 
 function renderModels(query = "") {
@@ -87,7 +135,7 @@ function chooseProvider(id, { keepKey = false, model } = {}) {
   if (!keepKey) $("api-key").value = "";
   modelCatalog = [{ id: model || preset.model, name: model || preset.model }];
   renderModels();
-  chooseModel(model || preset.model, "默认推荐 · 输入 Key 后可自动识别");
+  chooseModel(model || preset.model, "默认推荐 · 输入 Key 后可自动识别", { persist: false });
   status("ai-status", "");
   closeMenu("provider");
 }
@@ -126,7 +174,7 @@ async function discoverModels({ force = false } = {}) {
     renderModels();
     const selected = modelCatalog.some(item => item.id === $("model").value) ? $("model").value : modelCatalog[0].id;
     const meta = data.source === "preset" ? "官方候选 · 请测试账号权限" : `已识别 ${modelCatalog.length} 个文本模型`;
-    chooseModel(selected, meta);
+    chooseModel(selected, meta, { persist: false });
     status("ai-status", data.source === "preset" ? data.note : `已自动识别 ${modelCatalog.length} 个模型，请选择后测试连接。`, data.source === "preset" ? "" : "ok");
   } catch (error) {
     if (sequence !== discoverySequence) return;
@@ -138,17 +186,19 @@ async function discoverModels({ force = false } = {}) {
 }
 
 function restore() {
-  let ai = null;
-  try { ai = JSON.parse(sessionStorage.getItem("momo_ai_config") || "null"); } catch { /* ignore invalid tab data */ }
+  $("remember-connections").checked = localStorage.getItem(rememberKey) !== "false";
+  migrateCredentials();
+  const ai = storedJson("momo_ai_config");
   if (ai && providers[ai.provider]) {
     chooseProvider(ai.provider, { keepKey: true, model: ai.model });
     $("api-key").value = ai.api_key;
-    status("ai-status", `当前标签页已连接 ${providers[ai.provider].label} · ${ai.model}`, "ok");
+    status("ai-status", `已恢复 ${providers[ai.provider].label} · ${ai.model}`, "ok");
+    setTimeout(() => discoverModels(), 0);
   } else chooseProvider("deepseek", { keepKey: true });
-  const token = sessionStorage.getItem("momo_token") || "";
+  const token = storedValue("momo_token");
   if (token) {
     $("memo-token").value = token;
-    status("memo-status", "当前标签页已连接墨墨 Token", "ok");
+    status("memo-status", "已恢复墨墨 Token", "ok");
   }
 }
 
@@ -157,8 +207,15 @@ $("model-trigger").addEventListener("click", () => toggleMenu("model"));
 document.querySelectorAll(".provider-option").forEach(option => option.addEventListener("click", () => chooseProvider(option.dataset.provider)));
 $("model-search").addEventListener("input", event => renderModels(event.target.value));
 $("manual-option").addEventListener("click", useManualModel);
+$("manual-model").addEventListener("change", event => persistModelSelection(event.target.value.trim()));
 $("api-key").addEventListener("change", () => discoverModels());
 $("api-key").addEventListener("paste", () => setTimeout(() => discoverModels(), 0));
+$("remember-connections").addEventListener("change", () => {
+  migrateCredentials();
+  const place = rememberEnabled() ? "此浏览器" : "当前标签页";
+  status("ai-status", `连接信息将保存在${place}。`, "ok");
+  if ($("memo-token").value.trim()) status("memo-status", `墨墨 Token 将保存在${place}。`, "ok");
+});
 document.addEventListener("click", event => {
   if (!event.target.closest("#provider-select")) closeMenu("provider");
   if (!event.target.closest("#model-select")) closeMenu("model");
@@ -175,7 +232,7 @@ $("test-ai").addEventListener("click", async () => {
   status("ai-status", "正在向服务商发送最小测试请求…", "loading");
   try {
     const data = await post("/api/test-ai", config);
-    sessionStorage.setItem("momo_ai_config", JSON.stringify(config));
+    saveCredential("momo_ai_config", JSON.stringify(config));
     $("model").value = config.model;
     status("ai-status", data.message, "ok");
   } catch (error) { status("ai-status", error.message, "error"); } finally { busy(button, false); }
@@ -188,22 +245,22 @@ $("test-memo").addEventListener("click", async () => {
   status("memo-status", "正在验证 Token…", "loading");
   try {
     const data = await post("/api/test-maimemo", { token });
-    sessionStorage.setItem("momo_token", token);
+    saveCredential("momo_token", token);
     status("memo-status", data.message, "ok");
   } catch (error) { status("memo-status", error.message, "error"); } finally { busy(button, false); }
 });
 
 $("clear-ai").addEventListener("click", () => {
-  sessionStorage.removeItem("momo_ai_config");
+  removeCredential("momo_ai_config");
   lastDiscoverySignature = "";
   discoverySequence += 1;
   chooseProvider($("provider").value, { keepKey: false });
-  status("ai-status", "已清除当前标签页的 AI 连接");
+  status("ai-status", "已从此浏览器清除 AI 连接");
 });
 $("clear-memo").addEventListener("click", () => {
-  sessionStorage.removeItem("momo_token");
+  removeCredential("momo_token");
   $("memo-token").value = "";
-  status("memo-status", "已清除当前标签页的墨墨 Token");
+  status("memo-status", "已从此浏览器清除墨墨 Token");
 });
 
 restore();
