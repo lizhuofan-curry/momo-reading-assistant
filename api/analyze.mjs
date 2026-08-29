@@ -1,6 +1,6 @@
 import { body, fail, json, method } from "./_lib/http.mjs";
 import { chatCompletion, providerConfig } from "./_lib/providers.mjs";
-import { FREE_LIMIT, setFreeUses, usedFreeUses } from "./_lib/quota.mjs";
+import { freeTrialStatus, startFreeTrial } from "./_lib/quota.mjs";
 
 const MAX_CHARS = 150000;
 
@@ -120,8 +120,10 @@ export default async function handler(request, response) {
   try {
     const data = body(request);
     const useFree = String(data.mode || "free") === "free";
-    const used = usedFreeUses(request);
-    if (useFree && used >= FREE_LIMIT) return json(response, 402, { ok: false, error: "此浏览器的 5 次免费体验已用完，请连接你自己的 AI API。", remaining: 0 });
+    const trial = freeTrialStatus(request);
+    if (useFree && trial.started && !trial.active) {
+      return json(response, 402, { ok: false, error: "此浏览器的一周免费体验已结束，请连接你自己的 AI API。", trial });
+    }
     const article = String(data.article || "").trim();
     const level = String(data.level || "专业论文阅读").replace(/[\r\n]/g, " ").trim().slice(0, 40);
     const maxWords = Number(data.max_words || 20);
@@ -131,8 +133,7 @@ export default async function handler(request, response) {
     if (!Number.isInteger(maxWords) || maxWords < 3 || maxWords > 50) throw new Error("提取数量必须在 3 到 50 之间。");
     const config = providerConfig(data, useFree);
     const words = await analyzeWithModel(config, article, level, maxWords, expansion);
-    const nextUsed = useFree ? used + 1 : used;
-    if (useFree) setFreeUses(response, nextUsed);
-    json(response, 200, { ok: true, words, mode: useFree ? "free" : "own", provider: config.label, remaining: FREE_LIMIT - nextUsed });
+    const nextTrial = useFree && !trial.started ? startFreeTrial(response) : trial;
+    json(response, 200, { ok: true, words, mode: useFree ? "free" : "own", provider: config.label, trial: nextTrial });
   } catch (error) { fail(response, error); }
 }

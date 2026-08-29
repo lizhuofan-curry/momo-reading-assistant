@@ -2,7 +2,7 @@ const $ = id => document.getElementById(id);
 let selectedFile = null;
 let words = [];
 let allSelected = true;
-let freeRemaining = 0;
+let freeTrial = { started: false, active: false, daysRemaining: 0, endsAt: null };
 let imagePreviewUrl = "";
 
 function toast(message, error = false) {
@@ -36,7 +36,11 @@ async function post(path, payload = {}) {
     body: JSON.stringify(payload)
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok || !data.ok) throw new Error(data.error || "操作失败");
+  if (!response.ok || !data.ok) {
+    const error = new Error(data.error || "操作失败");
+    error.data = data;
+    throw error;
+  }
   return data;
 }
 
@@ -53,23 +57,41 @@ function memoToken() {
   return localStorage.getItem("momo_token") || sessionStorage.getItem("momo_token") || "";
 }
 
+function trialEndLabel() {
+  if (!freeTrial.endsAt) return "";
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit"
+  }).format(new Date(freeTrial.endsAt));
+}
+
 function updateConnectionUI() {
   const ai = ownAiConfig();
   const token = memoToken();
+  const freeNote = !freeTrial.active
+    ? `一周免费体验已结束，<a href="/connections/">连接自己的 AI API</a> 后可继续使用。`
+    : freeTrial.started
+      ? `免费体验进行中，剩余约 <strong>${freeTrial.daysRemaining}</strong> 天（至 ${trialEndLabel()}），期间不限分析次数。`
+      : `首次成功分析后开启连续 <strong>7 天</strong>免费体验，期间不限分析次数。`;
   $("ai-mode-note").innerHTML = $("ai-mode").value === "free"
-    ? `此浏览器还可免费分析 <strong>${freeRemaining}</strong> 次，成功一次才扣一次。`
+    ? freeNote
     : ai ? `已连接 ${escapeHtml(ai.label || ai.provider)} · ${escapeHtml(ai.model)}` : `尚未连接自己的模型，<a href="/connections/">前往连接设置</a>。`;
   $("memo-status").innerHTML = token
     ? `已在此浏览器连接你的墨墨 Token。可在连接设置中清除或改为仅当前标签页保存。`
     : `需要先在<a href="/connections/">连接设置</a>中测试你自己的墨墨 Access Token。本站不会把 Token 写入服务器数据库。`;
-  $("quota-badge").innerHTML = `<span>免费体验 ${freeRemaining}/5</span>`;
+  $("quota-badge").innerHTML = `<span>${!freeTrial.active ? "免费体验已结束" : freeTrial.started ? `免费体验 · 剩余 ${freeTrial.daysRemaining} 天` : "限时免费 · 待开启"}</span>`;
+  $("quota-title").textContent = !freeTrial.active ? "一周体验已结束" : freeTrial.started ? "一周体验进行中" : "限时免费体验一周";
+  $("quota-detail").innerHTML = !freeTrial.active
+    ? `此浏览器的连续 7 天免费体验已经结束。你仍可<a href="/connections/">连接自己的 AI API</a>继续使用。`
+    : freeTrial.started
+      ? `体验将在 ${trialEndLabel()} 结束，剩余期间不限分析次数。失败请求、文件解析和图片 OCR 不影响体验时间。`
+      : `从首次成功生成生词开始计时，连续 7×24 小时内不限分析次数。失败请求、文件解析、图片 OCR 和查看示例均不会提前开始计时。`;
   refreshPrettySelect($("ai-mode"));
 }
 
 async function loadQuota() {
-  const data = await fetch("/api/quota", { cache: "no-store" }).then(response => response.json()).catch(() => ({ remaining: 0 }));
-  freeRemaining = Number(data.remaining || 0);
-  if (!freeRemaining && !ownAiConfig()) $("ai-mode").value = "own";
+  const data = await fetch("/api/quota", { cache: "no-store" }).then(response => response.json()).catch(() => ({ trial: null }));
+  freeTrial = data.trial || { started: false, active: false, daysRemaining: 0, endsAt: null };
+  if (!freeTrial.active) $("ai-mode").value = "own";
   updateConnectionUI();
 }
 
@@ -83,7 +105,7 @@ const selectDescriptions = {
   level: value => value === "custom" ? "按自己的实际情况描述" : "按你的学习目标判断词汇价值",
   "max-words": value => `最多生成 ${value} 个候选词`,
   expansion: value => ({ none: "结果更简洁，适合直接建词本", phrases: "每个词补充常用搭配", full: "每个词补充词族与常用搭配" }[value]),
-  "ai-mode": value => value === "free" ? "使用本站免费体验额度" : "使用已保存的模型连接"
+  "ai-mode": value => value === "free" ? "使用本站一周免费体验" : "使用已保存的模型连接"
 };
 
 function closePrettySelects(except = null) {
@@ -351,7 +373,7 @@ function loadDemo() {
   ];
   $("title").value = "示例词本（不会自动同步）";
   renderWords();
-  setResultStatus("success", "结果示例已载入", "这是静态示例，不消耗免费次数，也不会自动同步。");
+  setResultStatus("success", "结果示例已载入", "这是静态示例，不会开启或延长免费体验，也不会自动同步。");
   $("workspace").scrollIntoView({ behavior: "smooth", block: "start" });
   toast("已载入结果示例；同步时需要你自己的墨墨 Token");
 }
@@ -426,7 +448,7 @@ $("analyze").addEventListener("click", async () => {
   const level = $("level").value === "custom" ? $("custom-level").value.trim() : $("level").value;
   const config = mode === "own" ? ownAiConfig() : null;
   if (!level) return toast("请描述你的英语水平或学习目标。", true);
-  if (mode === "free" && freeRemaining <= 0) return toast("免费体验已用完，请连接你自己的 AI API。", true);
+  if (mode === "free" && !freeTrial.active) return toast("一周免费体验已结束，请连接你自己的 AI API。", true);
   if (mode === "own" && !config) { toast("请先连接并测试你自己的 AI API。", true); setTimeout(() => { location.href = "/connections/"; }, 900); return; }
   const button = $("analyze");
   setBusy(button, true, "AI 正在阅读这份材料…");
@@ -434,13 +456,17 @@ $("analyze").addEventListener("click", async () => {
   try {
     const data = await post("/api/analyze", { mode, ...(config || {}), article: $("source-text").value, level, expansion: $("expansion").value, max_words: Number($("max-words").value) });
     words = data.words;
-    if (mode === "free") freeRemaining = Number(data.remaining ?? Math.max(0, freeRemaining - 1));
+    if (mode === "free" && data.trial) freeTrial = data.trial;
     updateConnectionUI();
     renderWords();
     setResultStatus("success", "生词已生成，可以开始审核", `共得到 ${words.length} 个候选词；取消不需要的词后再同步。`);
     if (!$("title").value) $("title").value = `阅读生词 ${new Date().toLocaleDateString("zh-CN").replaceAll("/", "-")}`;
     toast(`筛选完成，共得到 ${words.length} 个生词`);
   } catch (error) {
+    if (mode === "free" && error.data?.trial) {
+      freeTrial = error.data.trial;
+      updateConnectionUI();
+    }
     setResultStatus("error", "本次分析没有完成", error.message);
     toast(error.message, true);
   } finally { setBusy(button, false); }

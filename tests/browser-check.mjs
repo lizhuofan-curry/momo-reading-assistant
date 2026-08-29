@@ -18,7 +18,7 @@ page.on("pageerror", error => pageErrors.push(error.message));
 await page.goto(baseUrl, { waitUntil: "networkidle" });
 if (!(await page.locator("body").innerText()).trim()) throw new Error("页面为空白");
 if (!await page.getByRole("heading", { name: /从一份材料/ }).isVisible()) throw new Error("公开首页未显示");
-if (!await page.locator("#quota-badge").isVisible()) throw new Error("免费次数未显示");
+if (!await page.locator("#quota-badge").isVisible()) throw new Error("免费体验状态未显示");
 if (await page.locator(".pretty-select").count() !== 4) throw new Error("工作台四个自定义下拉栏未渲染");
 if (!await page.locator(".pretty-select:has(#level) .select-action", { hasText: "展开" }).isVisible()) throw new Error("下拉栏缺少醒目的展开提示");
 await page.locator(".pretty-select:has(#level) .select-trigger").click();
@@ -59,7 +59,7 @@ if (!/robust/i.test(await page.locator("#source-text").inputValue())) throw new 
 await page.screenshot({ path: fileURLToPath(new URL("online-image-ocr.png", output)), fullPage: true });
 await page.locator("#quota-badge").click();
 if (!await page.locator("#quota-panel").isVisible()) throw new Error("免费规则说明未展开");
-if (!await page.locator("#quota-panel").getByText(/成功生成生词才扣除/).isVisible()) throw new Error("免费规则不完整");
+if (!await page.locator("#quota-panel").getByText(/连续 7×24 小时内不限分析次数/).isVisible()) throw new Error("免费规则不完整");
 await page.keyboard.press("Escape");
 await page.getByRole("button", { name: "查看结果示例" }).click();
 if (await page.locator(".word-entry").count() < 3) throw new Error("免登录示例未渲染");

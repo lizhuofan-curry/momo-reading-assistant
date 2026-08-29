@@ -28,6 +28,10 @@ if (!analysisResponse.ok()) {
   await page.screenshot({ path: fileURLToPath(new URL("production-error.png", output)), fullPage: true });
   throw new Error(`分析接口 ${analysisResponse.status()}：${payload.error || "未知错误"}`);
 }
+const analysisPayload = await analysisResponse.json();
+if (!analysisPayload.trial?.started || !analysisPayload.trial?.active || !analysisPayload.trial?.endsAt) {
+  throw new Error("生产环境没有在首次成功分析后开启一周体验");
+}
 await page.locator(".word-entry").first().waitFor({ state: "visible", timeout: 10000 });
 const count = await page.locator(".word-entry").count();
 if (!await page.locator("#result-status.success").isVisible()) throw new Error("生产环境未显示分析成功状态");
