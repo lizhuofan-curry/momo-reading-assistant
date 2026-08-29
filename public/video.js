@@ -1,5 +1,6 @@
 import { formatAudioTime, makeAudioChunks } from "./audio-utils.js";
 import { providerName, SPEECH_PROVIDERS } from "./speech-providers.js";
+import { formatTimestamp, parseSubtitles, parseTimestamp } from "./subtitle-parser.js";
 
 const $ = id => document.getElementById(id);
 const CONFIG_KEY = "momo_audio_config";
@@ -10,6 +11,8 @@ let videoUrl = "";
 let preparedAudio = null;
 let controller = null;
 let extractedItems = [];
+let sourceMode = "video";
+let subtitleFile = null;
 
 function toast(message, error = false) {
   const node = $("video-toast");
@@ -19,9 +22,37 @@ function toast(message, error = false) {
   window.videoToastTimer = setTimeout(() => { node.className = "subtitle-toast"; }, 4500);
 }
 
+function escapeHtml(value) {
+  const node = document.createElement("div");
+  node.textContent = value ?? "";
+  return node.innerHTML;
+}
+
 function status(message, kind = "") {
   $("video-status").textContent = message;
   $("video-status").className = `status ${kind}`;
+}
+
+function subtitleStatus(message, kind = "") {
+  $("subtitle-status").textContent = message;
+  $("subtitle-status").className = `status ${kind}`;
+}
+
+function setSourceMode(next) {
+  sourceMode = next === "subtitle" ? "subtitle" : "video";
+  $("source-video").classList.toggle("selected", sourceMode === "video");
+  $("source-subtitle").classList.toggle("selected", sourceMode === "subtitle");
+  $("source-video").setAttribute("aria-selected", String(sourceMode === "video"));
+  $("source-subtitle").setAttribute("aria-selected", String(sourceMode === "subtitle"));
+  $("video-source-panel").classList.toggle("hidden", sourceMode !== "video");
+  $("subtitle-source-panel").classList.toggle("hidden", sourceMode !== "subtitle");
+}
+
+function updateCropOverlay() {
+  const top = Number($("crop-top").value) || 55;
+  const height = Math.min(100 - top, Number($("crop-height").value) || 35);
+  $("subtitle-crop").style.top = `${top}%`;
+  $("subtitle-crop").style.height = `${height}%`;
 }
 
 function bytesToBase64(bytes) {
@@ -81,7 +112,8 @@ async function setVideoFile(file) {
   videoUrl = URL.createObjectURL(file);
   const video = $("video-preview");
   video.src = videoUrl;
-  video.classList.remove("hidden");
+  $("video-stage").classList.remove("hidden");
+  updateCropOverlay();
   $("video-file-title").textContent = file.name;
   $("video-file-status").textContent = "正在读取视频信息并在本地准备音轨…";
   $("video-file-status").className = "status loading";
@@ -129,15 +161,19 @@ function cleanOcrText(value) {
   return String(value || "").split(/\r?\n/).map(line => line.replace(/[^A-Za-z0-9'.,!?;:\- ]+/g, " ").replace(/\s+/g, " ").trim()).filter(line => (line.match(/[A-Za-z]{2,}/g) || []).length >= 2).join(" ").trim();
 }
 
-async function recognizeFrames(signal) {
+async function recognizeFrames(signal, maxDuration = Infinity) {
   if (!window.Tesseract?.createWorker) throw new Error("本地画面 OCR 没有加载成功，请刷新后重试。");
   const video = $("video-preview");
   const canvas = $("frame-canvas");
   const interval = Number($("frame-interval").value) || 10;
-  const count = Math.min(36, Math.max(1, Math.ceil(video.duration / interval)));
-  const step = video.duration / count;
+  const duration = Math.min(video.duration, maxDuration);
+  const count = Math.min(36, Math.max(1, Math.ceil(duration / interval)));
+  const step = duration / count;
   const width = Math.min(1280, video.videoWidth || 1280);
-  const sourceHeight = Math.max(1, Math.round((video.videoHeight || 720) * .45));
+  const cropTop = (Number($("crop-top").value) || 55) / 100;
+  const cropHeight = Math.min(1 - cropTop, (Number($("crop-height").value) || 35) / 100);
+  const sourceY = Math.round((video.videoHeight || 720) * cropTop);
+  const sourceHeight = Math.max(1, Math.round((video.videoHeight || 720) * cropHeight));
   const height = Math.round(sourceHeight * width / (video.videoWidth || 1280));
   canvas.width = width;
   canvas.height = height;
@@ -155,7 +191,7 @@ async function recognizeFrames(signal) {
       $("video-progress-detail").textContent = `${index + 1} / ${count} 帧`;
       $("video-progress-bar").style.width = `${Math.round((index + 1) / count * 100)}%`;
       await seekVideo(video, time);
-      context.drawImage(video, 0, (video.videoHeight || 720) - sourceHeight, video.videoWidth || 1280, sourceHeight, 0, 0, width, height);
+      context.drawImage(video, 0, sourceY, video.videoWidth || 1280, sourceHeight, 0, 0, width, height);
       const { data } = await worker.recognize(canvas);
       const text = cleanOcrText(data?.text);
       const key = text.toLowerCase().replace(/[^a-z0-9']+/g, " ").trim();
@@ -166,6 +202,10 @@ async function recognizeFrames(signal) {
   return items;
 }
 
+function syncOutput() {
+  $("video-output").value = extractedItems.map(item => `[${formatAudioTime(item.start)} · ${item.source}] ${item.text}`).join("\n").slice(0, 150000);
+}
+
 function renderResults() {
   const seen = new Set();
   const items = extractedItems.sort((a, b) => a.start - b.start).filter(item => {
@@ -174,16 +214,19 @@ function renderResults() {
     seen.add(`${item.source}:${key}`);
     return /[a-z]{2}/i.test(item.text);
   });
+  extractedItems = items;
   $("video-empty").classList.toggle("hidden", Boolean(items.length));
   $("video-result").classList.toggle("hidden", !items.length);
   const voice = items.filter(item => item.source === "语音").length;
   const frame = items.filter(item => item.source === "画面").length;
-  $("video-result-summary").innerHTML = `<span>语音 ${voice} 段</span><span>画面 ${frame} 段</span><span>共 ${items.length} 条</span>`;
-  $("video-output").value = items.map(item => `[${formatAudioTime(item.start)} · ${item.source}] ${item.text}`).join("\n").slice(0, 150000);
+  const subtitle = items.filter(item => item.source === "字幕").length;
+  $("video-result-summary").innerHTML = `<span>语音 ${voice} 段</span><span>画面 ${frame} 段</span><span>字幕 ${subtitle} 段</span><span>共 ${items.length} 条</span>`;
+  $("unified-timeline").innerHTML = items.slice(0, 500).map((item, index) => `<article data-index="${index}"><button class="timeline-seek" type="button" title="跳到视频位置">▶</button><input class="timeline-time" value="${formatTimestamp(item.start)}" aria-label="开始时间"><textarea class="timeline-text" aria-label="英文内容">${escapeHtml(item.text)}</textarea><span class="timeline-source ${item.source}">${item.source}</span><button class="timeline-delete" type="button" aria-label="删除这一条">×</button></article>`).join("");
+  syncOutput();
   return items.length;
 }
 
-async function recognizeVideo() {
+async function recognizeVideo(preview = false) {
   if (!selectedFile) return toast("请先选择并成功读取视频。", true);
   const useAudio = $("use-audio").checked;
   const useFrames = $("use-frames").checked;
@@ -193,42 +236,104 @@ async function recognizeVideo() {
   saveConfig();
   controller = new AbortController();
   $("recognize-video").disabled = true;
+  $("test-video").disabled = true;
   $("stop-video").classList.remove("hidden");
   $("video-progress").classList.remove("hidden");
   extractedItems = [];
   try {
     if (useAudio) {
-      for (let index = 0; index < preparedAudio.chunks.length; index += 1) {
-        const chunk = preparedAudio.chunks[index];
+      const chunks = preview ? preparedAudio.chunks.slice(0, 1) : preparedAudio.chunks;
+      for (let index = 0; index < chunks.length; index += 1) {
+        const chunk = chunks[index];
         $("video-progress-title").textContent = `正在识别语音 ${formatAudioTime(chunk.start)}–${formatAudioTime(chunk.end)}`;
-        $("video-progress-detail").textContent = `${index + 1} / ${preparedAudio.chunks.length} 段`;
-        $("video-progress-bar").style.width = `${Math.round((index + 1) / preparedAudio.chunks.length * 100)}%`;
+        $("video-progress-detail").textContent = `${index + 1} / ${chunks.length} 段`;
+        $("video-progress-bar").style.width = `${Math.round((index + 1) / chunks.length * 100)}%`;
         const data = await transcribeChunk(chunk, controller.signal);
         const relative = data.segments?.length ? data.segments : data.text ? [{ start: 0, text: data.text }] : [];
         extractedItems.push(...relative.map(item => ({ start: chunk.start + Number(item.start || 0), text: String(item.text || "").trim(), source: "语音" })));
         renderResults();
       }
     }
-    if (useFrames) extractedItems.push(...await recognizeFrames(controller.signal));
+    if (useFrames) extractedItems.push(...await recognizeFrames(controller.signal, preview ? 30 : Infinity));
     const count = renderResults();
     if (!count) throw new Error("没有提取到可靠的英文。可以调整抽帧间隔、只选一种来源或更换视频。");
-    $("video-progress-title").textContent = "视频英文提取完成";
+    $("video-progress-title").textContent = preview ? "前 30 秒试识别完成" : "视频英文提取完成";
     $("video-progress-detail").textContent = `${count} 条`;
     $("video-progress-bar").style.width = "100%";
-    status(`已生成 ${count} 条可编辑内容，请检查识别错误后再送往工作台。`, "ok");
-    toast(`视频英文提取完成，共 ${count} 条`);
+    status(`${preview ? "试识别" : "完整识别"}已生成 ${count} 条内容；确认效果后可继续校对或处理完整视频。`, "ok");
+    toast(`${preview ? "前 30 秒试识别" : "视频英文提取"}完成，共 ${count} 条`);
   } catch (error) {
     const stopped = error.name === "AbortError";
     status(stopped ? "识别已停止，已经完成的结果仍可编辑。" : error.message, stopped ? "" : "error");
     if (!stopped) toast(error.message, true);
-  } finally { controller = null; $("recognize-video").disabled = false; $("stop-video").classList.add("hidden"); }
+  } finally { controller = null; $("recognize-video").disabled = false; $("test-video").disabled = false; $("stop-video").classList.add("hidden"); }
+}
+
+function setSubtitleFile(file) {
+  if (!file) return;
+  if (file.size > 10 * 1024 * 1024) return toast("字幕文件不能超过 10 MB。", true);
+  if (!/\.(srt|vtt|ass|ssa|txt)$/i.test(file.name)) return toast("请选择 SRT、VTT、ASS、SSA 或 TXT 字幕。", true);
+  subtitleFile = file;
+  $("subtitle-file-title").textContent = file.name;
+  $("subtitle-file-note").textContent = `${(file.size / 1024).toFixed(1)} KB · 原文件不会上传`;
+  subtitleStatus("字幕已就绪，点击“整理到统一时间轴”。", "ok");
+}
+
+async function parseSubtitleSource() {
+  const button = $("parse-subtitles");
+  button.disabled = true;
+  button.textContent = "正在本地整理…";
+  try {
+    const source = subtitleFile ? await subtitleFile.text() : $("subtitle-source").value;
+    if (!source.trim()) throw new Error("请先选择字幕文件，或粘贴字幕文字。");
+    if (subtitleFile) $("subtitle-source").value = source.slice(0, 500000);
+    const result = parseSubtitles(source, { filename: subtitleFile?.name || "pasted.txt", mergeSplit: $("merge-split").checked, keepDuplicates: !$("remove-duplicates").checked, keepTimestamps: true });
+    if (!result.cues.length) throw new Error("没有找到可用的英文台词，请检查语言或字幕格式。");
+    extractedItems = result.cues.map((cue, index) => ({ start: Number.isFinite(cue.start) ? cue.start : index * 3, end: Number.isFinite(cue.end) ? cue.end : null, text: cue.text, source: "字幕" }));
+    renderResults();
+    subtitleStatus(`已整理 ${result.cues.length} 条英文字幕、约 ${result.wordCount.toLocaleString()} 个词。`, "ok");
+    document.querySelector(".video-result-sheet").scrollIntoView({ behavior: "smooth", block: "start" });
+    toast("字幕已进入统一时间轴");
+  } catch (error) { subtitleStatus(error.message, "error"); toast(error.message, true); }
+  finally { button.disabled = false; button.textContent = "整理到统一时间轴"; }
+}
+
+function loadSubtitleDemo() {
+  subtitleFile = null;
+  $("subtitle-source").value = `1\n00:00:04,200 --> 00:00:06,800\nI didn't mean to put you on the spot.\n我不是故意让你难堪。\n\n2\n00:00:07,100 --> 00:00:11,500\nIt's just been a really awkward week for everyone.\n\n3\n00:00:15,000 --> 00:00:17,600\nWe should figure this out before Friday.`;
+  parseSubtitleSource();
+}
+
+function formatSrtTime(seconds) {
+  const millis = Math.max(0, Math.round((Number(seconds) || 0) * 1000));
+  const hours = Math.floor(millis / 3600000);
+  const minutes = Math.floor((millis % 3600000) / 60000);
+  const secs = Math.floor((millis % 60000) / 1000);
+  const ms = millis % 1000;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")},${String(ms).padStart(3, "0")}`;
+}
+
+function exportSrt() {
+  if (!extractedItems.length) return toast("时间轴还是空的，暂时无法导出。", true);
+  const content = extractedItems.map((item, index) => {
+    const next = extractedItems[index + 1]?.start;
+    const end = Number.isFinite(item.end) ? item.end : Number.isFinite(next) ? Math.max(item.start + .8, next - .05) : item.start + 3;
+    return `${index + 1}\n${formatSrtTime(item.start)} --> ${formatSrtTime(end)}\n${item.text}\n`;
+  }).join("\n");
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(new Blob([content], { type: "text/plain;charset=utf-8" }));
+  link.download = `${(selectedFile || subtitleFile)?.name.replace(/\.[^.]+$/, "") || "拾词时间轴"}.srt`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  toast("SRT 已导出到浏览器下载目录");
 }
 
 function sendToWorkspace() {
   const text = $("video-output").value.trim();
   if (text.length < 20) return toast("请先识别并检查足够的英文内容。", true);
   try {
-    sessionStorage.setItem("momo_video_import", JSON.stringify({ text: text.slice(0, 150000), title: `${selectedFile?.name.replace(/\.[^.]+$/, "") || "英文视频"} · 视频生词`.slice(0, 80), level: "美剧日常口语", expansion: "phrases", importedAt: Date.now() }));
+    const material = sourceMode === "subtitle" ? subtitleFile : selectedFile;
+    sessionStorage.setItem("momo_video_import", JSON.stringify({ text: text.slice(0, 150000), title: `${material?.name.replace(/\.[^.]+$/, "") || (sourceMode === "subtitle" ? "英文字幕" : "英文视频")} · 语境生词`.slice(0, 80), level: "美剧日常口语", expansion: sourceMode === "subtitle" ? "full" : "phrases", importedAt: Date.now() }));
     location.href = "/?import=video";
   } catch { toast("提取内容太大，浏览器无法暂存。请删减后重试。", true); }
 }
@@ -237,12 +342,49 @@ $("video-file").addEventListener("change", event => setVideoFile(event.target.fi
 ["dragenter", "dragover"].forEach(name => $("video-drop").addEventListener(name, event => { event.preventDefault(); $("video-drop").classList.add("dragging"); }));
 ["dragleave", "drop"].forEach(name => $("video-drop").addEventListener(name, event => { event.preventDefault(); $("video-drop").classList.remove("dragging"); }));
 $("video-drop").addEventListener("drop", event => setVideoFile(event.dataTransfer.files[0]));
+$("source-video").addEventListener("click", () => setSourceMode("video"));
+$("source-subtitle").addEventListener("click", () => setSourceMode("subtitle"));
+$("subtitle-file").addEventListener("change", event => setSubtitleFile(event.target.files[0]));
+["dragenter", "dragover"].forEach(name => $("subtitle-drop").addEventListener(name, event => { event.preventDefault(); $("subtitle-drop").classList.add("dragging"); }));
+["dragleave", "drop"].forEach(name => $("subtitle-drop").addEventListener(name, event => { event.preventDefault(); $("subtitle-drop").classList.remove("dragging"); }));
+$("subtitle-drop").addEventListener("drop", event => setSubtitleFile(event.dataTransfer.files[0]));
+$("subtitle-source").addEventListener("input", () => { if ($("subtitle-source").value.trim()) subtitleFile = null; });
+$("parse-subtitles").addEventListener("click", parseSubtitleSource);
+$("load-subtitle-demo").addEventListener("click", loadSubtitleDemo);
+[$("crop-top"), $("crop-height")].forEach(input => input.addEventListener("input", updateCropOverlay));
 document.querySelectorAll(".speech-provider-button").forEach(button => button.addEventListener("click", () => { chooseProvider(button.dataset.provider); saveConfig(); }));
 $("speech-model").addEventListener("change", saveConfig);
 $("speech-key").addEventListener("change", saveConfig);
 $("remember-speech").addEventListener("change", saveConfig);
-$("recognize-video").addEventListener("click", recognizeVideo);
+$("test-video").addEventListener("click", () => recognizeVideo(true));
+$("recognize-video").addEventListener("click", () => recognizeVideo(false));
 $("stop-video").addEventListener("click", () => controller?.abort());
 $("clear-speech").addEventListener("click", () => { localStorage.removeItem(CONFIG_KEY); sessionStorage.removeItem(CONFIG_KEY); $("speech-key").value = ""; status("语音连接已从此浏览器清除。", "ok"); });
 $("send-video-workspace").addEventListener("click", sendToWorkspace);
+$("export-srt").addEventListener("click", exportSrt);
+$("unified-timeline").addEventListener("click", event => {
+  const row = event.target.closest("article[data-index]");
+  if (!row) return;
+  const index = Number(row.dataset.index);
+  if (event.target.closest(".timeline-delete")) {
+    extractedItems.splice(index, 1);
+    renderResults();
+  } else if (event.target.closest(".timeline-seek") && selectedFile) {
+    $("video-preview").currentTime = extractedItems[index].start;
+    $("video-preview").play().catch(() => {});
+  }
+});
+$("unified-timeline").addEventListener("input", event => {
+  const row = event.target.closest("article[data-index]");
+  if (!row) return;
+  const item = extractedItems[Number(row.dataset.index)];
+  if (event.target.matches(".timeline-text")) item.text = event.target.value.trim();
+  if (event.target.matches(".timeline-time")) {
+    const next = parseTimestamp(event.target.value);
+    if (next !== null) item.start = next;
+  }
+  syncOutput();
+});
 restoreConfig();
+setSourceMode(new URLSearchParams(location.search).get("mode") === "subtitle" ? "subtitle" : "video");
+updateCropOverlay();

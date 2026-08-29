@@ -9,11 +9,9 @@
   ·
   <a href="https://momo.zhuofan.me/translate/">即时翻译</a>
   ·
-  <a href="https://momo.zhuofan.me/video/">视频英文</a>
+  <a href="https://momo.zhuofan.me/video/">视频与字幕</a>
   ·
   <a href="https://momo.zhuofan.me/music/">音乐歌词</a>
-  ·
-  <a href="https://momo.zhuofan.me/subtitles/">美剧字幕</a>
   ·
   <a href="https://momo.zhuofan.me/guide/">使用教程</a>
   ·
@@ -51,7 +49,7 @@
 拾词把英文阅读和词汇复习连成一个闭环：
 
 ```text
-论文 / 讲义 / 电子书 / 笔记 / 英文图片 / 本地视频 / 美剧字幕 / 英文歌曲
+论文 / 讲义 / 电子书 / 笔记 / 英文图片 / 视频与字幕 / 英文歌曲
               ↓
        本地提取真实语境
               ↓
@@ -72,8 +70,8 @@
 | 🖱️ 阅读划词查词 | 在工作台选中一个英文单词后按需查询语境释义，不会在仅选择文字时自动发送请求 |
 | ✓ 同步前重复检查 | 标记此浏览器曾同步过的单词；同步前可一键排除，也可确认后再次加入新词本 |
 | 🖼️ 本地图片 OCR | 支持 PNG、JPG、WEBP、BMP；原图留在浏览器，仅识别后的文字进入筛词流程 |
-| 🎞️ 视频英文提取 | 导入本地 MP4、WebM、MOV 或 M4V；可合并音轨 ASR 与画面下方字幕 OCR，原视频不上传 |
-| 🎬 美剧字幕整理 | 支持 SRT、VTT、ASS、SSA 和粘贴字幕；本地清除中文、样式、重复台词并保留时间码 |
+| 🎞️ 视频与字幕工作台 | 可导入 MP4、WebM、MOV、M4V，或 SRT、VTT、ASS、SSA；视频支持音轨 ASR、可视区域 OCR 和前 30 秒试识别，字幕支持本地清洗 |
+| ⏱️ 统一时间轴 | 语音、画面和字幕结果在同一时间轴校对，可定位播放、编辑、删除并导出 SRT，再送往筛词工作台 |
 | 🎵 按歌名搜索 | 通过官方歌曲目录确认歌曲、歌手和版本，展示官方试听，不下载或提供整首音乐 |
 | 🎙️ 英文歌词识别 | 上传本地 MP3、WAV、M4A、OGG 或 FLAC，在浏览器生成轻量分片后用千问、硅基流动、OpenAI 或 Groq 转写 |
 | 🧠 语境筛词 | 根据四级、六级、考研、雅思、托福、专业论文、美剧日常口语和英文歌曲等目标筛选生词 |
@@ -182,7 +180,7 @@ npm audit --omit=dev
 - **Backend**：Vercel Serverless Functions
 - **Document parsing**：`pdfjs-dist`、`mammoth`
 - **Image OCR**：`Tesseract.js`（英文识别引擎与语言数据本地托管）
-- **Subtitle parsing**：原生 JavaScript 本地解析 SRT、VTT、ASS、SSA，清洗双语字幕并保留时间轴
+- **Media timeline**：原生 JavaScript 统一整理语音 ASR、画面 OCR 与 SRT、VTT、ASS、SSA 字幕，支持时间轴校对和 SRT 导出
 - **Music catalog**：Apple iTunes Search API，仅用于歌曲元数据、封面和官方试听
 - **Audio processing**：Web Audio API 本地解码、单声道混音、16 kHz 重采样与 WAV 分片
 - **Speech-to-text**：用户自有 OpenAI / Groq API，服务端固定地址白名单
@@ -213,11 +211,12 @@ momo-reading-assistant/
 │   ├── candidate-store.js # 候选生词去重、持久化与同步记录
 │   ├── music.js          # 歌曲搜索、音频识别与工作台交接
 │   ├── music/            # 音乐歌词独立页面
-│   ├── video.js          # 视频音轨、画面 OCR 与工作台交接
-│   ├── video/            # 视频英文独立页面
+│   ├── video.js          # 视频、字幕、统一时间轴与工作台交接
+│   ├── video.css         # 视频与字幕工作台专属样式
+│   ├── video/            # 视频与字幕统一工作台
 │   ├── subtitle-parser.js # 本地字幕解析与双语清洗
-│   ├── subtitles.js      # 字幕时间轴与工作台交接
-│   ├── subtitles/        # 美剧字幕独立页面
+│   ├── subtitles.js      # 旧字幕入口兼容跳转
+│   ├── subtitles/        # 兼容旧地址并跳转到统一工作台
 │   ├── connections.js    # AI 与墨墨连接设置
 │   └── site.css          # 页面样式
 ├── tests/                # 单元测试与浏览器检查
@@ -249,7 +248,7 @@ AI 提供建议，但不替你做决定。
 
 ## 📌 项目状态
 
-当前版本已经上线，支持从英文材料、图片、本地视频、美剧字幕与用户持有的英文歌曲中整理语境，经过 AI 筛词和人工审核后同步到墨墨云词本。后续可以继续完善：
+当前版本已经上线，支持从英文材料、图片、本地视频、字幕与用户持有的英文歌曲中整理语境。视频和字幕共用可编辑时间轴，可导出 SRT，再经过 AI 筛词和人工审核同步到墨墨云词本。后续可以继续完善：
 
 - 扫描 PDF 的逐页 OCR 支持；
 - 火山引擎音视频字幕等需要独立鉴权的服务商；

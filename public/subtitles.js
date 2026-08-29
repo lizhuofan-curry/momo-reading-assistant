@@ -1,5 +1,7 @@
 import { formatTimestamp, parseSubtitles } from "./subtitle-parser.js";
 
+location.replace("/video/?mode=subtitle");
+
 const $ = id => document.getElementById(id);
 let selectedFile = null;
 let parsed = null;
