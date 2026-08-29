@@ -378,6 +378,29 @@ function loadDemo() {
   toast("已载入结果示例；同步时需要你自己的墨墨 Token");
 }
 
+function loadSubtitleImport() {
+  let imported;
+  try { imported = JSON.parse(sessionStorage.getItem("momo_subtitle_import") || "null"); } catch { imported = null; }
+  if (!imported?.text || Date.now() - Number(imported.importedAt || 0) > 30 * 60 * 1000) return;
+  sessionStorage.removeItem("momo_subtitle_import");
+  showMode("paste");
+  $("paste-text").value = String(imported.text).slice(0, 150000);
+  setSourceText($("paste-text").value);
+  $("title").value = String(imported.title || "美剧台词生词").slice(0, 80);
+  $("tag").value = "美剧生词";
+  if ([...$("level").options].some(option => option.value === imported.level)) {
+    $("level").value = imported.level;
+    $("level").dispatchEvent(new Event("change", { bubbles: true }));
+  }
+  if ([...$("expansion").options].some(option => option.value === imported.expansion)) {
+    $("expansion").value = imported.expansion;
+    $("expansion").dispatchEvent(new Event("change", { bubbles: true }));
+  }
+  setResultStatus("success", "字幕已带入工作台", "时间码和英文台词仍可编辑；确认筛选标准后再开始分析。");
+  $("workspace").scrollIntoView({ block: "start" });
+  toast("字幕已带入，并切换到美剧日常口语筛选");
+}
+
 $("hero-start").addEventListener("click", () => $("workspace").scrollIntoView({ behavior: "smooth", block: "start" }));
 $("try-demo").addEventListener("click", loadDemo);
 $("quota-badge").addEventListener("click", () => {
@@ -492,5 +515,6 @@ $("sync").addEventListener("click", async () => {
 });
 
 document.querySelectorAll("select.pretty-native").forEach(enhanceSelect);
+loadSubtitleImport();
 window.addEventListener("pageshow", updateConnectionUI);
 await loadQuota();

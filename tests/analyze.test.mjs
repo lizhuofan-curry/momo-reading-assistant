@@ -12,6 +12,12 @@ test("beginner prompt keeps useful common words", () => {
   assert.match(customPrompt, /日常基础词和常用动词/);
 });
 
+test("subtitle prompt prioritizes reusable spoken English", () => {
+  const prompt = buildPrompt("[00:04:12] That really put me on the spot.", "美剧日常口语", 10, "full");
+  assert.match(prompt, /熟词口语义、俚语核心词和固定搭配/);
+  assert.match(prompt, /排除角色名/);
+});
+
 test("full expansion is normalized and bounded", () => {
   const words = normalize([{
     word: "robust",

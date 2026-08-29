@@ -75,9 +75,12 @@ export function normalize(raw, article, limit, expansion = "none") {
 
 export function buildPrompt(article, level, maxWords, expansion = "none") {
   const vocabularySize = level.match(/词汇量\D{0,5}(\d{2,5})/i);
+  const spoken = /美剧|影视|字幕|口语|俚语/i.test(level);
   const beginner = /A1|A2|基础|小学|初中|入门|初学|只认识|较差|较弱|不会/i.test(level)
     || (vocabularySize && Number(vocabularySize[1]) <= 3000);
-  const levelRule = beginner
+  const levelRule = spoken
+    ? "材料来自影视字幕：优先选择真实口语中可复用的动词、熟词口语义、俚语核心词和固定搭配中的关键词；排除角色名、语气噪声和只在剧情中有意义的专有词。"
+    : beginner
     ? "学习者目前处于基础阶段：可以选择材料中的日常基础词和常用动词，不要因为词频高就一律删除；优先保证可理解、可复用。"
     : "学习者已有一定基础：删除其水平下通常已经掌握的简单词，优先保留有语境价值的词。";
   const extensionRule = expansion === "full"

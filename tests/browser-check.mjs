@@ -69,13 +69,35 @@ if (!await page.locator(".word-expansion").first().getByText("robustness", { exa
 if (!await page.locator("#result-status.success").isVisible()) throw new Error("结果成功状态未显示");
 await page.locator("#token-help").click();
 if (!await page.locator("#token-explainer").getByText(/只分析和审核生词不需要 Token/).isVisible()) throw new Error("Token 说明未展开");
-for (const path of ["/guide/", "/privacy/", "/help/", "/connections/"]) {
+for (const path of ["/subtitles/", "/guide/", "/privacy/", "/help/", "/connections/"]) {
   const child = await context.newPage();
   child.on("pageerror", error => pageErrors.push(`${path}: ${error.message}`));
   await child.goto(new URL(path, baseUrl).href, { waitUntil: "networkidle" });
   if (!(await child.locator("main").innerText()).trim()) throw new Error(`${path} 页面为空`);
   await child.close();
 }
+const subtitlePage = await context.newPage();
+await subtitlePage.goto(new URL("/subtitles/", baseUrl).href, { waitUntil: "networkidle" });
+if (!await subtitlePage.getByRole("heading", { name: /让每句台词/ }).isVisible()) throw new Error("美剧字幕页面未显示");
+const subtitleUpload = Buffer.from("1\n00:00:01,000 --> 00:00:03,000\nMONICA: Could you give me a hand?\n你能帮我一下吗？\n", "utf8");
+await subtitlePage.locator("#subtitle-file").setInputFiles({ name: "friends-s01e01.srt", mimeType: "application/x-subrip", buffer: subtitleUpload });
+await subtitlePage.getByRole("button", { name: "整理英文字幕" }).click();
+await subtitlePage.locator(".timeline-cue").first().waitFor({ state: "visible" });
+if (!/Could you give me a hand\?/.test(await subtitlePage.locator("#subtitle-output").inputValue())) throw new Error("上传的 SRT 文件没有在浏览器中正确读取");
+await subtitlePage.getByRole("button", { name: "载入示例" }).click();
+await subtitlePage.locator(".timeline-cue").first().waitFor({ state: "visible" });
+if (await subtitlePage.locator(".timeline-cue").count() !== 3) throw new Error("示例字幕没有正确合并并去重");
+if (!/\[00:00:04\]/.test(await subtitlePage.locator("#subtitle-output").inputValue())) throw new Error("字幕开始时间没有保留");
+if (/[\u3400-\u9fff]/.test(await subtitlePage.locator("#subtitle-output").inputValue())) throw new Error("双语字幕中的中文没有清除");
+await subtitlePage.screenshot({ path: fileURLToPath(new URL("subtitles-timeline.png", output)), fullPage: true });
+await subtitlePage.getByRole("button", { name: /带着字幕去筛词/ }).click();
+await subtitlePage.waitForURL(url => url.pathname === "/");
+if (await subtitlePage.locator("#level").inputValue() !== "美剧日常口语") throw new Error("字幕没有切换到美剧日常口语标准");
+if (await subtitlePage.locator("#expansion").inputValue() !== "full") throw new Error("字幕没有默认开启词汇与短语扩展");
+if (!/\[00:00:04\]/.test(await subtitlePage.locator("#paste-text").inputValue())) throw new Error("字幕没有带入工作台");
+if (!/City Stories · S01E03/.test(await subtitlePage.locator("#title").inputValue())) throw new Error("剧集信息没有带入词本名称");
+await subtitlePage.screenshot({ path: fileURLToPath(new URL("subtitles-handoff.png", output)), fullPage: true });
+await subtitlePage.close();
 const connectionPage = await context.newPage();
 await connectionPage.route("**/api/models", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, provider: "Google Gemini", models: [{ id: "gemini-3.7-flash", name: "Gemini 3.7 Flash" }, { id: "gemini-3.7-pro", name: "Gemini 3.7 Pro" }] }) }));
 await connectionPage.route("**/api/test-ai", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, message: "Google Gemini · gemini-3.7-pro 连接成功" }) }));
@@ -162,6 +184,14 @@ if (!await mobile.getByRole("heading", { name: /从一份材料/ }).isVisible())
 await mobile.locator("#quota-badge").click();
 if (!await mobile.locator("#quota-panel").isVisible()) throw new Error("移动端免费规则未显示");
 await mobile.screenshot({ path: fileURLToPath(new URL("online-mobile.png", output)), fullPage: true });
+const subtitleMobile = await context.newPage();
+await subtitleMobile.setViewportSize({ width: 390, height: 844 });
+await subtitleMobile.goto(new URL("/subtitles/", baseUrl).href, { waitUntil: "networkidle" });
+await subtitleMobile.getByRole("button", { name: "载入示例" }).click();
+if (!await subtitleMobile.locator(".timeline-cue").first().isVisible()) throw new Error("移动端字幕时间轴未显示");
+if (!await subtitleMobile.getByRole("button", { name: /带着字幕去筛词/ }).isVisible()) throw new Error("移动端字幕交接按钮未显示");
+await subtitleMobile.screenshot({ path: fileURLToPath(new URL("subtitles-mobile.png", output)), fullPage: true });
+await subtitleMobile.close();
 await browser.close();
 if (consoleErrors.length || pageErrors.length) throw new Error(`浏览器错误：${[...consoleErrors, ...pageErrors].join(" | ")}`);
 console.log("BROWSER_CHECK_OK");

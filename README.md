@@ -7,6 +7,8 @@
 <p>
   <a href="https://momo.zhuofan.me"><strong>🌐 在线体验</strong></a>
   ·
+  <a href="https://momo.zhuofan.me/subtitles/">美剧字幕</a>
+  ·
   <a href="https://momo.zhuofan.me/guide/">使用教程</a>
   ·
   <a href="https://momo.zhuofan.me/privacy/">隐私说明</a>
@@ -43,7 +45,7 @@
 拾词把英文阅读和词汇复习连成一个闭环：
 
 ```text
-论文 / 讲义 / 电子书 / 笔记 / 英文图片
+论文 / 讲义 / 电子书 / 笔记 / 英文图片 / 美剧字幕
               ↓
        本地提取真实语境
               ↓
@@ -60,7 +62,8 @@
 | --- | --- |
 | 📄 多格式导入 | 支持 PDF、DOCX、TXT、Markdown，也可以直接粘贴英文文本 |
 | 🖼️ 本地图片 OCR | 支持 PNG、JPG、WEBP、BMP；原图留在浏览器，仅识别后的文字进入筛词流程 |
-| 🧠 语境筛词 | 根据四级、六级、考研、雅思、托福、专业论文阅读等目标筛选生词 |
+| 🎬 美剧字幕整理 | 支持 SRT、VTT、ASS、SSA 和粘贴字幕；本地清除中文、样式、重复台词并保留时间码 |
+| 🧠 语境筛词 | 根据四级、六级、考研、雅思、托福、专业论文阅读和美剧日常口语等目标筛选生词 |
 | 🌱 适配真实水平 | 新增 A1、A2、B1 基础档位，也可用一句话自定义自己的词汇水平和目标 |
 | ＋ 词汇扩展 | 可选择仅看核心生词、附带常用短语，或同时查看派生词与短语 |
 | ✍️ 人工审核 | AI 只负责建议，你决定哪些词真正进入词本 |
@@ -121,7 +124,7 @@ The model learns robust temporal representations from noisy signals.
 
 拾词处理英文材料时遵循“先本地、后分析”的原则：
 
-- 文件文字与图片英文内容在浏览器本地提取，原文件和原图不上传；
+- 文件文字、图片英文内容与字幕都在浏览器本地提取或清洗，原文件、原图和字幕文件不上传；
 - 只有你确认分析的文本才会发送给所选 AI 服务商；
 - 访问者可选择将 AI API Key、墨墨 Token 和所选模型保存在当前浏览器的 `localStorage`，重新打开网站后自动恢复；
 - 在公共设备上可以关闭“记住连接”，此时凭据仅保存在当前标签页的 `sessionStorage`；
@@ -164,6 +167,7 @@ npm audit --omit=dev
 - **Backend**：Vercel Serverless Functions
 - **Document parsing**：`pdfjs-dist`、`mammoth`
 - **Image OCR**：`Tesseract.js`（英文识别引擎与语言数据本地托管）
+- **Subtitle parsing**：原生 JavaScript 本地解析 SRT、VTT、ASS、SSA，清洗双语字幕并保留时间轴
 - **AI integration**：OpenAI-compatible API
 - **Model discovery**：服务端官方地址白名单、动态模型目录、文本模型过滤与手填兜底
 - **Deployment**：Vercel
@@ -181,6 +185,9 @@ momo-reading-assistant/
 ├── public/
 │   ├── index.html        # 拾词工作台
 │   ├── app.js            # 前端交互逻辑
+│   ├── subtitle-parser.js # 本地字幕解析与双语清洗
+│   ├── subtitles.js      # 字幕时间轴与工作台交接
+│   ├── subtitles/        # 美剧字幕独立页面
 │   ├── connections.js    # AI 与墨墨连接设置
 │   └── site.css          # 页面样式
 ├── tests/                # 单元测试与浏览器检查

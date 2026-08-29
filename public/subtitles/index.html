@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="在浏览器本地整理 SRT、VTT、ASS 和 SSA 美剧字幕，保留时间语境后交给拾词筛选生词。">
+  <title>美剧字幕 · 拾词</title>
+  <link rel="stylesheet" href="/site.css">
+</head>
+<body class="subtitle-page">
+  <header class="topbar"><nav class="nav"><a class="brand" href="/"><span class="brand-mark">拾</span><strong>拾词</strong></a><div class="nav-links"><a aria-current="page" href="/subtitles/">美剧字幕</a><a href="/guide/">使用教程</a><a href="/privacy/">隐私说明</a><a href="/connections/">连接设置</a><a class="nav-cta" href="/">返回工作台</a></div></nav></header>
+  <main class="page subtitle-page-main">
+    <section class="subtitle-hero">
+      <div><div class="eyebrow">Series notes · Local parser</div><h1>让每句台词，带着时间回到记忆里。</h1><p>上传合法获得的字幕，拾词会在浏览器本地去掉中文、样式代码和重复台词。确认时间轴后，再送到工作台筛选口语、俚语与固定搭配。</p></div>
+      <div class="clapper" aria-label="字幕整理流程"><div class="clapper-top"><i></i><i></i><i></i><i></i></div><strong>SUBTITLE<br>TO WORDS</strong><dl><div><dt>原文件</dt><dd>不上传</dd></div><div><dt>支持</dt><dd>SRT · VTT · ASS</dd></div><div><dt>下一幕</dt><dd>AI 筛词</dd></div></dl></div>
+    </section>
+
+    <section class="subtitle-workspace">
+      <div class="subtitle-import sheet">
+        <div class="section-heading"><div><span class="badge">IMPORT</span><h2>导入这一集的字幕</h2><p>字幕只在当前浏览器中读取和整理。</p></div><span class="step-count">01</span></div>
+        <label class="subtitle-drop" id="subtitle-drop" for="subtitle-file"><input id="subtitle-file" type="file" accept=".srt,.vtt,.ass,.ssa,.txt,text/plain,text/vtt"><span class="subtitle-file-mark">CC</span><strong id="subtitle-file-title">选择字幕文件</strong><small id="subtitle-file-note">SRT、VTT、ASS、SSA 或 TXT · 最大 10 MB</small></label>
+        <div class="subtitle-divider"><span>或者直接粘贴</span></div>
+        <textarea id="subtitle-source" class="subtitle-source" spellcheck="false" placeholder="粘贴带时间码的字幕，或普通英文台词……"></textarea>
+        <div class="episode-fields"><div class="field"><label for="series-name">剧集名称</label><input id="series-name" maxlength="50" placeholder="例如：Friends"></div><div class="field"><label for="season-number">季</label><input id="season-number" type="number" min="1" max="99" placeholder="1"></div><div class="field"><label for="episode-number">集</label><input id="episode-number" type="number" min="1" max="999" placeholder="3"></div></div>
+        <fieldset class="subtitle-options"><legend>整理方式</legend><label><input id="merge-split" type="checkbox" checked><span><strong>合并被切开的短句</strong><small>相邻 1.5 秒内、语义明显未结束的台词会接在一起</small></span></label><label><input id="remove-duplicates" type="checkbox" checked><span><strong>删除完全重复的台词</strong><small>片头、片尾或重复字幕只保留第一次出现</small></span></label><label><input id="keep-timestamps" type="checkbox" checked><span><strong>保留开始时间</strong><small>筛出的生词可以带回本集的台词位置</small></span></label></fieldset>
+        <div class="actions"><button class="button" id="parse-subtitles" type="button">整理英文字幕</button><button class="button secondary" id="load-subtitle-demo" type="button">载入示例</button></div>
+        <p class="status" id="subtitle-status" role="status">等待导入字幕。</p>
+      </div>
+
+      <div class="subtitle-preview sheet">
+        <div class="section-heading"><div><span class="badge">TIMELINE</span><h2>检查清洗结果</h2><p>时间码是场记，不会被当作生词。</p></div><span class="step-count">02</span></div>
+        <div class="subtitle-stats" id="subtitle-stats"><div><strong>—</strong><span>英文台词</span></div><div><strong>—</strong><span>英文词数</span></div><div><strong>—</strong><span>已去重复</span></div><div><strong>—</strong><span>字幕格式</span></div></div>
+        <div class="timeline-empty" id="timeline-empty"><span>00:00:00</span><strong>整理后的台词会沿时间轴出现在这里</strong><p>你可以先载入示例，看看双语字幕如何变成适合筛词的英文语料。</p></div>
+        <div class="timeline hidden" id="timeline"></div>
+        <div class="subtitle-output-wrap hidden" id="subtitle-output-wrap"><label for="subtitle-output">送往工作台的文字</label><textarea id="subtitle-output" class="subtitle-output" spellcheck="false"></textarea><div class="subtitle-handoff"><p><strong>下一步会发生什么？</strong><span>文字进入现有工作台，你仍可编辑并选择“美剧日常口语”标准。只有点击分析后，文字才会发送给所选模型。</span></p><button class="button" id="send-to-workspace" type="button">带着字幕去筛词 →</button></div></div>
+      </div>
+    </section>
+
+    <section class="subtitle-boundary"><strong>这是字幕整理器，不是影视资源下载器。</strong><p>请只处理你合法获得、并有权用于个人学习的字幕。拾词不会搜索影视资源、绕过登录或 DRM，也不会把字幕原文件保存到服务器。</p></section>
+  </main>
+  <footer class="footer"><span>拾词 · 从真实台词建立口语词本</span><span><a href="/privacy/">隐私说明</a> · <a href="/help/">常见问题</a> · <a href="https://zhuofan.me">作者主页</a></span></footer>
+  <div class="subtitle-toast" id="subtitle-toast" role="status"></div>
+  <script type="module" src="/subtitles.js"></script>
+</body>
+</html>
