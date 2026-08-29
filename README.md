@@ -70,6 +70,30 @@
 | 🔒 Local-first | PDF、DOCX、TXT 和 Markdown 优先在浏览器本地提取文字 |
 | 📱 响应式界面 | 桌面端和移动端均可使用，适合学习、阅读和快速复习 |
 
+## 🔌 支持的 AI 服务商
+
+连接设置页目前提供 15 家服务商，并按国内、国际分组展示：
+
+| 国内服务 | 国际服务 |
+| --- | --- |
+| DeepSeek | OpenAI |
+| 火山方舟 Doubao | Google Gemini |
+| Kimi 开放平台 | OpenRouter |
+| 千问开放平台 Qwen | Groq |
+| MiniMax 开放平台 | Together AI |
+| 小米 MiMo | Mistral AI |
+| 智谱 GLM | xAI |
+| 硅基流动 SiliconFlow | — |
+
+模型选择流程：
+
+1. 选择服务商并粘贴自己的 API Key；
+2. 页面自动读取该 Key 当前可用的文本模型；
+3. 在可搜索的模型下拉栏中选择模型，再发送最小测试请求；
+4. 如果服务商没有开放模型列表、账号权限不足或目标模型未被返回，页面会自动切换到手填模式。
+
+> 火山方舟的推理 API 不直接返回账号模型目录，因此页面会先展示官方候选模型。你也可以手动填写控制台中的模型 ID 或推理接入点 ID，并通过“测试 AI 连接”确认是否可用。
+
 ## 🧪 一个简单例子
 
 输入一段真实的技术英文：
@@ -132,6 +156,7 @@ npm audit --omit=dev
 - **Backend**：Vercel Serverless Functions
 - **Document parsing**：`pdfjs-dist`、`mammoth`
 - **AI integration**：OpenAI-compatible API
+- **Model discovery**：服务端官方地址白名单、动态模型目录、文本模型过滤与手填兜底
 - **Deployment**：Vercel
 - **Design direction**：Local-first、privacy-aware、context-aware learning
 
