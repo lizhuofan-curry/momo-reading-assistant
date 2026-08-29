@@ -43,7 +43,7 @@ export function normalizeTranslation(raw, text, kind) {
       kind,
       original: text,
       word,
-      phonetic: clean(raw.phonetic, 80).replace(/^\[|\]$/g, ""),
+      phonetic: clean(raw.phonetic, 80).replace(/^[\[/]+|[\]/]+$/g, ""),
       partOfSpeech: clean(raw.partOfSpeech, 60),
       meanings,
       usage: clean(raw.usage, 240),

@@ -9,7 +9,7 @@ test("translation mode distinguishes a single English word from a sentence", () 
 });
 
 test("word translation is normalized and bounded", () => {
-  const result = normalizeTranslation({ word: "robust", phonetic: "[rəʊˈbʌst]", partOfSpeech: "adjective", meanings: ["稳健的", "强健的"], usage: "常用于系统和方法。", example: "The method is robust to noise.", exampleTranslation: "该方法对噪声具有稳健性。", phrases: ["robust to noise — 对噪声稳健"] }, "robust", "word");
+  const result = normalizeTranslation({ word: "robust", phonetic: "/rəʊˈbʌst/", partOfSpeech: "adjective", meanings: ["稳健的", "强健的"], usage: "常用于系统和方法。", example: "The method is robust to noise.", exampleTranslation: "该方法对噪声具有稳健性。", phrases: ["robust to noise — 对噪声稳健"] }, "robust", "word");
   assert.equal(result.phonetic, "rəʊˈbʌst");
   assert.deepEqual(result.meanings, ["稳健的", "强健的"]);
   assert.equal(result.kind, "word");
