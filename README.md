@@ -43,7 +43,7 @@
 拾词把英文阅读和词汇复习连成一个闭环：
 
 ```text
-论文 / 讲义 / 电子书 / 笔记
+论文 / 讲义 / 电子书 / 笔记 / 英文图片
               ↓
        本地提取真实语境
               ↓
@@ -59,6 +59,7 @@
 | 功能 | 说明 |
 | --- | --- |
 | 📄 多格式导入 | 支持 PDF、DOCX、TXT、Markdown，也可以直接粘贴英文文本 |
+| 🖼️ 本地图片 OCR | 支持 PNG、JPG、WEBP、BMP；原图留在浏览器，仅识别后的文字进入筛词流程 |
 | 🧠 语境筛词 | 根据四级、六级、考研、雅思、托福、专业论文阅读等目标筛选生词 |
 | ✍️ 人工审核 | AI 只负责建议，你决定哪些词真正进入词本 |
 | 📌 保留语境 | 每个单词都保留原文例句、中文释义和筛选理由 |
@@ -69,7 +70,7 @@
 | 🎟️ 免费体验 | 每个浏览器可成功分析 5 次，额度控件会解释计数规则 |
 | ◌ 操作状态 | 提供解析中、分析中、失败、完成及同步反馈 |
 | ? Token 帮助 | 只分析不需要墨墨 Token，创建云词本时才需要 |
-| 🔒 Local-first | PDF、DOCX、TXT 和 Markdown 优先在浏览器本地提取文字 |
+| 🔒 Local-first | 文档解析与图片英文 OCR 均在浏览器本地完成 |
 | 📱 响应式界面 | 桌面端和移动端均可使用，适合学习、阅读和快速复习 |
 
 ## 🔌 支持的 AI 服务商
@@ -116,7 +117,7 @@ The model learns robust temporal representations from noisy signals.
 
 拾词处理英文材料时遵循“先本地、后分析”的原则：
 
-- 文件文字优先在浏览器本地提取；
+- 文件文字与图片英文内容在浏览器本地提取，原文件和原图不上传；
 - 只有你确认分析的文本才会发送给所选 AI 服务商；
 - 访问者可选择将 AI API Key、墨墨 Token 和所选模型保存在当前浏览器的 `localStorage`，重新打开网站后自动恢复；
 - 在公共设备上可以关闭“记住连接”，此时凭据仅保存在当前标签页的 `sessionStorage`；
@@ -124,7 +125,7 @@ The model learns robust temporal representations from noisy signals.
 - 网站不会替你悄悄把词加入墨墨词本，必须经过人工审核；
 - 不要把 `.env.local`、API Key 或 Access Token 提交到仓库。
 
-> 请注意：扫描版 PDF 暂不支持 OCR；超长材料会截取前 150,000 个字符用于分析。
+> 请注意：图片 OCR 已支持；扫描版 PDF 暂未自动逐页 OCR，可将需要的页面导出为图片上传。超长材料会截取前 150,000 个字符用于分析。
 
 ## 🚀 快速开始
 
@@ -158,6 +159,7 @@ npm audit --omit=dev
 - **Frontend**：原生 HTML / CSS / JavaScript
 - **Backend**：Vercel Serverless Functions
 - **Document parsing**：`pdfjs-dist`、`mammoth`
+- **Image OCR**：`Tesseract.js`（英文识别引擎与语言数据本地托管）
 - **AI integration**：OpenAI-compatible API
 - **Model discovery**：服务端官方地址白名单、动态模型目录、文本模型过滤与手填兜底
 - **Deployment**：Vercel
@@ -208,7 +210,7 @@ AI 提供建议，但不替你做决定。
 
 当前版本已经上线，支持从英文材料中提取文本、AI 语境筛词、人工审核以及墨墨云词本同步。后续可以继续完善：
 
-- 扫描 PDF 的 OCR 支持；
+- 扫描 PDF 的逐页 OCR 支持；
 - 更丰富的词汇难度和领域标签；
 - 生词结果导出与复习统计；
 - 更细粒度的隐私和数据管理控制；

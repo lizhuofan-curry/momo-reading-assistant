@@ -3,6 +3,7 @@ let selectedFile = null;
 let words = [];
 let allSelected = true;
 let freeRemaining = 0;
+let imagePreviewUrl = "";
 
 function toast(message, error = false) {
   const element = $("toast");
@@ -62,6 +63,7 @@ function updateConnectionUI() {
     ? `已在此浏览器连接你的墨墨 Token。可在连接设置中清除或改为仅当前标签页保存。`
     : `需要先在<a href="/connections/">连接设置</a>中测试你自己的墨墨 Access Token。本站不会把 Token 写入服务器数据库。`;
   $("quota-badge").innerHTML = `<span>免费体验 ${freeRemaining}/5</span>`;
+  refreshPrettySelect($("ai-mode"));
 }
 
 async function loadQuota() {
@@ -75,6 +77,99 @@ function escapeHtml(value) {
   const div = document.createElement("div");
   div.textContent = value ?? "";
   return div.innerHTML;
+}
+
+const selectDescriptions = {
+  level: () => "按你的学习目标判断词汇价值",
+  "max-words": value => `最多生成 ${value} 个候选词`,
+  "ai-mode": value => value === "free" ? "使用本站免费体验额度" : "使用已保存的模型连接"
+};
+
+function closePrettySelects(except = null) {
+  document.querySelectorAll(".select-trigger[aria-expanded=true]").forEach(trigger => {
+    if (trigger === except) return;
+    trigger.setAttribute("aria-expanded", "false");
+    document.getElementById(trigger.getAttribute("aria-controls"))?.classList.add("hidden");
+  });
+}
+
+function refreshPrettySelect(select) {
+  select?._prettyRefresh?.();
+}
+
+function enhanceSelect(select) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "pretty-select";
+  select.parentNode.insertBefore(wrapper, select);
+  wrapper.appendChild(select);
+  select.classList.add("select-native-hidden");
+  select.tabIndex = -1;
+
+  const menuId = `${select.id}-menu`;
+  const trigger = document.createElement("button");
+  trigger.type = "button";
+  trigger.className = "select-trigger";
+  trigger.setAttribute("aria-haspopup", "listbox");
+  trigger.setAttribute("aria-expanded", "false");
+  trigger.setAttribute("aria-controls", menuId);
+  const menu = document.createElement("div");
+  menu.id = menuId;
+  menu.className = "select-menu hidden";
+  menu.setAttribute("role", "listbox");
+  wrapper.append(trigger, menu);
+
+  const render = () => {
+    const selected = select.selectedOptions[0];
+    const description = selectDescriptions[select.id]?.(select.value) || "点击展开更多选项";
+    trigger.innerHTML = `<span class="select-mark">${escapeHtml(select.dataset.mark || "⌄")}</span><span class="select-copy"><strong>${escapeHtml(selected?.textContent || "请选择")}</strong><small>${escapeHtml(description)}</small></span><span class="select-chevron" aria-hidden="true">⌄</span>`;
+    menu.querySelectorAll(".select-option").forEach((option, index) => {
+      const active = index === select.selectedIndex;
+      option.classList.toggle("selected", active);
+      option.setAttribute("aria-selected", String(active));
+    });
+  };
+
+  [...select.options].forEach((option, index) => {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "select-option";
+    item.setAttribute("role", "option");
+    item.dataset.value = option.value;
+    item.innerHTML = `<span>${escapeHtml(option.textContent)}</span><span class="select-check" aria-hidden="true">✓</span>`;
+    item.addEventListener("click", () => {
+      select.selectedIndex = index;
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+      closePrettySelects();
+      trigger.focus();
+    });
+    menu.appendChild(item);
+  });
+
+  const open = () => {
+    closePrettySelects(trigger);
+    trigger.setAttribute("aria-expanded", "true");
+    menu.classList.remove("hidden");
+    const active = menu.querySelector(".selected") || menu.firstElementChild;
+    active?.focus();
+  };
+  trigger.addEventListener("click", () => trigger.getAttribute("aria-expanded") === "true" ? closePrettySelects() : open());
+  trigger.addEventListener("keydown", event => {
+    if (["ArrowDown", "ArrowUp", "Enter", " "].includes(event.key)) { event.preventDefault(); open(); }
+  });
+  menu.addEventListener("keydown", event => {
+    const options = [...menu.querySelectorAll(".select-option")];
+    const current = options.indexOf(document.activeElement);
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const offset = event.key === "ArrowDown" ? 1 : -1;
+      options[(current + offset + options.length) % options.length]?.focus();
+    }
+  });
+  const label = document.querySelector(`label[for="${select.id}"]`);
+  label?.addEventListener("click", event => { event.preventDefault(); trigger.focus(); });
+  select.addEventListener("change", render);
+  select._prettyRefresh = render;
+  render();
 }
 
 function showMode(mode) {
@@ -102,8 +197,9 @@ function formatBytes(bytes) {
 
 function setFile(file) {
   const extension = (file.name.split(".").pop() || "").toLowerCase();
-  if (!["pdf", "docx", "txt", "md", "markdown"].includes(extension)) {
-    toast("当前支持 PDF、DOCX、TXT 和 Markdown 文件", true);
+  const image = ["png", "jpg", "jpeg", "webp", "bmp"].includes(extension);
+  if (!["pdf", "docx", "txt", "md", "markdown", "png", "jpg", "jpeg", "webp", "bmp"].includes(extension)) {
+    toast("当前支持 PDF、DOCX、TXT、Markdown、PNG、JPG、WEBP 和 BMP", true);
     return;
   }
   if (file.size > 25 * 1024 * 1024) {
@@ -117,6 +213,14 @@ function setFile(file) {
   $("file-name").textContent = file.name;
   $("file-size").textContent = formatBytes(file.size);
   $("page-range").classList.toggle("hidden", extension !== "pdf");
+  $("file-card").classList.toggle("image-file", image);
+  $("extract-file").textContent = image ? "识别图片中的英文" : "读取文件文字";
+  $("extract-file").dataset.label = $("extract-file").textContent;
+  if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+  imagePreviewUrl = image ? URL.createObjectURL(file) : "";
+  $("image-preview").classList.toggle("hidden", !image);
+  if (image) $("image-preview").src = imagePreviewUrl;
+  else $("image-preview").removeAttribute("src");
   $("file-result").classList.add("hidden");
 }
 
@@ -125,6 +229,11 @@ function clearFile() {
   $("file-input").value = "";
   $("dropzone").classList.remove("hidden");
   $("file-card").classList.add("hidden");
+  $("file-card").classList.remove("image-file");
+  if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+  imagePreviewUrl = "";
+  $("image-preview").removeAttribute("src");
+  $("image-preview").classList.add("hidden");
   $("file-result").classList.add("hidden");
 }
 
@@ -151,6 +260,7 @@ async function readPdf(file) {
 async function readFile(file) {
   const extension = (file.name.split(".").pop() || "").toLowerCase();
   if (extension === "pdf") return readPdf(file);
+  if (["png", "jpg", "jpeg", "webp", "bmp"].includes(extension)) return readImage(file);
   if (extension === "docx") {
     const result = await window.mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
     return { text: result.value, range: "DOCX 文档" };
@@ -162,6 +272,41 @@ async function readFile(file) {
   }
   if (!text) throw new Error("文本编码无法识别，请另存为 UTF-8 后重试。");
   return { text, range: "文本文件" };
+}
+
+async function readImage(file) {
+  if (!window.Tesseract?.createWorker) throw new Error("本地图片识别组件没有加载成功，请刷新页面后重试。");
+  const result = $("file-result");
+  const button = $("extract-file");
+  const statusNames = {
+    "loading tesseract core": "正在加载本地识别引擎",
+    "initializing tesseract": "正在初始化识别引擎",
+    "loading language traineddata": "正在加载英文识别数据",
+    "initializing api": "正在准备英文识别",
+    "recognizing text": "正在识别图片文字"
+  };
+  let worker;
+  try {
+    worker = await window.Tesseract.createWorker("eng", 1, {
+      workerPath: "/vendor/tesseract/worker.min.js",
+      corePath: "/vendor/tesseract/core",
+      langPath: "/vendor/tesseract/lang",
+      logger: message => {
+        const label = statusNames[message.status] || "正在本地识别图片";
+        const percent = Number.isFinite(message.progress) ? ` ${Math.round(message.progress * 100)}%` : "";
+        result.textContent = `${label}${percent} · 原图不会上传`;
+        if (message.status === "recognizing text") button.textContent = `${label}${percent}`;
+      }
+    });
+    await worker.setParameters({ user_defined_dpi: "300", preserve_interword_spaces: "1" });
+    const { data } = await worker.recognize(file, { rotateAuto: true });
+    const text = String(data.text || "").replace(/[^\S\r\n]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+    const englishWords = text.match(/[A-Za-z][A-Za-z'-]{1,}/g) || [];
+    if (text.length < 20 || englishWords.length < 3) throw new Error("没有识别到足够的英文文字。请换一张更清晰、文字更大、背景更干净的图片。");
+    return { text, range: `图片 OCR · 识别到约 ${englishWords.length} 个英文词` };
+  } finally {
+    await worker?.terminate().catch(() => {});
+  }
 }
 
 function updateCount() {
@@ -213,6 +358,7 @@ $("token-help").addEventListener("click", () => {
   $("token-explainer").classList.toggle("hidden", expanded);
 });
 document.addEventListener("click", event => {
+  if (!event.target.closest(".pretty-select")) closePrettySelects();
   if (!event.target.closest(".top-actions")) {
     $("quota-badge").setAttribute("aria-expanded", "false");
     $("quota-panel").classList.add("hidden");
@@ -224,6 +370,7 @@ document.addEventListener("keydown", event => {
     $("quota-panel").classList.add("hidden");
     $("token-help").setAttribute("aria-expanded", "false");
     $("token-explainer").classList.add("hidden");
+    closePrettySelects();
   }
 });
 $("ai-mode").addEventListener("change", updateConnectionUI);
@@ -300,5 +447,6 @@ $("sync").addEventListener("click", async () => {
   } finally { setBusy(button, false); }
 });
 
+document.querySelectorAll("select.pretty-native").forEach(enhanceSelect);
 window.addEventListener("pageshow", updateConnectionUI);
 await loadQuota();

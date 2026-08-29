@@ -8,8 +8,10 @@
     "test": "node --test"
   },
   "dependencies": {
+    "@tesseract.js-data/eng": "^1.0.0",
     "mammoth": "^1.10.0",
-    "pdfjs-dist": "^6.2.108"
+    "pdfjs-dist": "^6.2.108",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "playwright-core": "^1.62.1",

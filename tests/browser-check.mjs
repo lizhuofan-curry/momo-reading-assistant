@@ -19,6 +19,36 @@ await page.goto(baseUrl, { waitUntil: "networkidle" });
 if (!(await page.locator("body").innerText()).trim()) throw new Error("页面为空白");
 if (!await page.getByRole("heading", { name: /从一份材料/ }).isVisible()) throw new Error("公开首页未显示");
 if (!await page.locator("#quota-badge").isVisible()) throw new Error("免费次数未显示");
+if (await page.locator(".pretty-select").count() !== 3) throw new Error("工作台三个自定义下拉栏未渲染");
+await page.locator(".pretty-select:has(#level) .select-trigger").click();
+await page.locator(".pretty-select:has(#level) .select-option", { hasText: "雅思英语" }).click();
+if (await page.locator("#level").inputValue() !== "雅思英语") throw new Error("筛选标准下拉没有同步值");
+await page.locator(".pretty-select:has(#max-words) .select-trigger").click();
+await page.locator(".pretty-select:has(#max-words) .select-option", { hasText: "20" }).click();
+if (await page.locator("#max-words").inputValue() !== "20") throw new Error("最多提取下拉没有同步值");
+const ocrImage = await page.evaluate(() => {
+  const canvas = document.createElement("canvas");
+  canvas.width = 1600;
+  canvas.height = 480;
+  const context = canvas.getContext("2d");
+  context.fillStyle = "white";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = "black";
+  context.font = "700 76px Arial";
+  context.fillText("Robust temporal representations", 70, 170);
+  context.fillText("improve model generalization.", 70, 300);
+  return canvas.toDataURL("image/png").split(",")[1];
+});
+await page.locator("#file-input").setInputFiles({ name: "reading-note.png", mimeType: "image/png", buffer: Buffer.from(ocrImage, "base64") });
+if (!await page.locator("#image-preview").isVisible()) throw new Error("图片预览未显示");
+await page.locator("#extract-file").click();
+try {
+  await page.locator("#file-result.success").waitFor({ state: "visible", timeout: 90000 });
+} catch (error) {
+  throw new Error(`本地 OCR 超时：${await page.locator("#file-result").textContent()}；浏览器错误：${[...consoleErrors, ...pageErrors].join(" | ") || "无"}`, { cause: error });
+}
+if (!/robust/i.test(await page.locator("#source-text").inputValue())) throw new Error("本地 OCR 未识别示例英文");
+await page.screenshot({ path: fileURLToPath(new URL("online-image-ocr.png", output)), fullPage: true });
 await page.locator("#quota-badge").click();
 if (!await page.locator("#quota-panel").isVisible()) throw new Error("免费规则说明未展开");
 if (!await page.locator("#quota-panel").getByText(/成功生成生词才扣除/).isVisible()) throw new Error("免费规则不完整");
